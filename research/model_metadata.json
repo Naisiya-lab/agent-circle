@@ -1,0 +1,63 @@
+{
+  "checked_date": "2026-10-24",
+  "method": "Official model-card pages inspected through web retrieval; HF size displays are rounded. Direct metadata API requests failed; no exact counts or immutable revisions claimed.",
+  "selection_rule": "Official model name 3-7B, total including vision listed separately.",
+  "models": [
+    {
+      "profile": "internvl25_4b",
+      "model_id": "OpenGVLab/InternVL2_5-4B",
+      "nominal_size_b": 4,
+      "model_card_total_rounded_b": 4,
+      "exact_total_parameters": null,
+      "source": "https://huggingface.co/OpenGVLab/InternVL2_5-4B"
+    },
+    {
+      "profile": "llava15_7b",
+      "model_id": "llava-hf/llava-1.5-7b-hf",
+      "nominal_size_b": 7,
+      "model_card_total_rounded_b": 7,
+      "exact_total_parameters": null,
+      "source": "https://huggingface.co/llava-hf/llava-1.5-7b-hf"
+    },
+    {
+      "profile": "llava16_7b",
+      "model_id": "llava-hf/llava-v1.6-vicuna-7b-hf",
+      "nominal_size_b": 7,
+      "model_card_total_rounded_b": 7,
+      "exact_total_parameters": null,
+      "source": "https://huggingface.co/llava-hf/llava-v1.6-vicuna-7b-hf"
+    },
+    {
+      "profile": "qwen25_vl_3b",
+      "model_id": "Qwen/Qwen2.5-VL-3B-Instruct",
+      "nominal_size_b": 3,
+      "model_card_total_rounded_b": 4,
+      "exact_total_parameters": null,
+      "source": "https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct"
+    },
+    {
+      "profile": "qwen25_vl_7b",
+      "model_id": "Qwen/Qwen2.5-VL-7B-Instruct",
+      "nominal_size_b": 7,
+      "model_card_total_rounded_b": 8,
+      "exact_total_parameters": null,
+      "source": "https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct"
+    },
+    {
+      "profile": "qwen2_vl_7b",
+      "model_id": "Qwen/Qwen2-VL-7B-Instruct",
+      "nominal_size_b": 7,
+      "model_card_total_rounded_b": 8,
+      "exact_total_parameters": null,
+      "source": "https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct"
+    },
+    {
+      "profile": "qwen3_vl_4b",
+      "model_id": "Qwen/Qwen3-VL-4B-Instruct",
+      "nominal_size_b": 4,
+      "model_card_total_rounded_b": 4,
+      "exact_total_parameters": null,
+      "source": "https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct"
+    }
+  ]
+}

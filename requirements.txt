@@ -1,0 +1,2 @@
+# The orchestration client and table tools use only the Python standard library.
+# Python >=3.10. Install a separate server environment using requirements-server.txt.

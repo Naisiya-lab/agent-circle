@@ -1,0 +1,14 @@
+{
+  "official_readme": {
+    "source": "https://raw.githubusercontent.com/SpursGoZmy/Table-LLaVA/main/README.md",
+    "error": "<urlopen error [WinError 10054] 远程主机强迫关闭了一个现有的连接。>"
+  },
+  "official_license": {
+    "source": "https://raw.githubusercontent.com/SpursGoZmy/Table-LLaVA/main/LICENSE",
+    "error": "<urlopen error [WinError 10054] 远程主机强迫关闭了一个现有的连接。>"
+  },
+  "official_eval": {
+    "source": "https://raw.githubusercontent.com/SpursGoZmy/Table-LLaVA/main/MMTab-eval_evaluation/MMTab_evaluation.ipynb",
+    "error": "<urlopen error [WinError 10054] 远程主机强迫关闭了一个现有的连接。>"
+  }
+}

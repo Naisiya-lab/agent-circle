@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+scripts/env.local.sh
+runs/*
+prepared/*
+offline_checks/
+*.zip
+!runs/.gitkeep
+!prepared/.gitkeep

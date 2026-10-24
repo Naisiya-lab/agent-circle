@@ -1,0 +1,132 @@
+{
+  "date": "2026-10-24",
+  "source_root": "D:\\PS\\search\\loop_agent",
+  "scope": "Current tool_messages_v2 core. Original code, runs and analyses preserved. Portable transport/config/runner adaptations recorded separately. Prompt content unchanged.",
+  "files": [
+    {
+      "source": "D:\\PS\\search\\loop_agent\\tool_loop_runtime\\communication.py",
+      "destination": "tool_loop_runtime\\communication.py",
+      "sha256": "ebf2679d104af8623c7a50aa4e9f9249af96cb72727849bb4d286bc97e5bfb86"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\tool_loop_runtime\\pipeline.py",
+      "destination": "tool_loop_runtime\\pipeline.py",
+      "sha256": "864e9efad4335a8f8b17b1258f3e749c61e67689a71cdd0fd1c2c2876a1bbfdc"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\tool_loop_runtime\\protocol.py",
+      "destination": "tool_loop_runtime\\protocol.py",
+      "sha256": "3b6e17b3a965bc7df2c28548724e43073d511aece99e861195fe6e647b264d88"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\tool_loop_runtime\\runner.py",
+      "destination": "tool_loop_runtime\\runner.py",
+      "sha256": "23b7dee093f399fa8ee22398ddb33af386c9fd18cdaaacd0862405bc84971648"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\tool_loop_runtime\\stages.py",
+      "destination": "tool_loop_runtime\\stages.py",
+      "sha256": "c09bca0b5f857c5beb547833725a6e18e62472fe4fe755da590f254dac597519"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\tool_loop_runtime\\transport.py",
+      "destination": "tool_loop_runtime\\transport.py",
+      "sha256": "ef05426833e1c90fd3fdb4bf8d6313515276fabe58d9ade70cdc57bbe0afada5"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\tool_loop_runtime\\wire_json.py",
+      "destination": "tool_loop_runtime\\wire_json.py",
+      "sha256": "b4d6410816f487afaefbe39a084aef322e761922cecc15a5f5a44cac6ecf3b73"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\tool_loop_runtime\\__init__.py",
+      "destination": "tool_loop_runtime\\__init__.py",
+      "sha256": "17f93a13af61cbfea166ffc32c3fee56cd9056a696c99c64de425153056f38d8"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\tool_loop_runtime\\prompts\\01_understand.txt",
+      "destination": "tool_loop_runtime\\prompts\\01_understand.txt",
+      "sha256": "d506c056a99919e0c117a8d1d02481fa57c02bf74ab953c22dee9a2ab30b4075"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\tool_loop_runtime\\prompts\\02_select.txt",
+      "destination": "tool_loop_runtime\\prompts\\02_select.txt",
+      "sha256": "b15b854cb153ccbf79b927fe89fb29c1457dff5d0a05530c3bb9005109963057"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\tool_loop_runtime\\prompts\\02_select_vision.txt",
+      "destination": "tool_loop_runtime\\prompts\\02_select_vision.txt",
+      "sha256": "d79dd22b565f11d88b4b7ae451aef0d9c313dcd6cb9962deb6c8edf931d83cea"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\tool_loop_runtime\\prompts\\04_solve.txt",
+      "destination": "tool_loop_runtime\\prompts\\04_solve.txt",
+      "sha256": "4c3d8fe1f468998001f24345b731eee4631ec57c37e6beb1ec99693a35f4ebda"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\tool_loop_runtime\\prompts\\05_check.txt",
+      "destination": "tool_loop_runtime\\prompts\\05_check.txt",
+      "sha256": "eb936a8a53ac058800a3ae23330187518907472efe2ff9263346296e732343f8"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\tool_loop_runtime\\prompts\\zh\\01_understand.txt",
+      "destination": "tool_loop_runtime\\prompts\\zh\\01_understand.txt",
+      "sha256": "fc1436421a635f6942cf5196f2dd55969b714f35c7d488390efce158f8a0430b"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\tool_loop_runtime\\prompts\\zh\\02_select.txt",
+      "destination": "tool_loop_runtime\\prompts\\zh\\02_select.txt",
+      "sha256": "114552171d769aa762d4455959a56724f24483b5ee3af66f0058b1964f149a58"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\tool_loop_runtime\\prompts\\zh\\02_select_vision.txt",
+      "destination": "tool_loop_runtime\\prompts\\zh\\02_select_vision.txt",
+      "sha256": "3997bf0416196b8b4a29f05dc9cff4324a6a0af4eac001299a3475b8c55af265"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\tool_loop_runtime\\prompts\\zh\\04_solve.txt",
+      "destination": "tool_loop_runtime\\prompts\\zh\\04_solve.txt",
+      "sha256": "f9cad237c65206d266251af1db37c6fc7cf5f8401df602370d33dcd659fdd2e9"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\tool_loop_runtime\\prompts\\zh\\05_check.txt",
+      "destination": "tool_loop_runtime\\prompts\\zh\\05_check.txt",
+      "sha256": "999e7032b17015db3bb58cd65238210f19e10ebf146b6d036d86f7b2e34ba90a"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\table_tools\\contracts.py",
+      "destination": "table_tools\\contracts.py",
+      "sha256": "5a7a5e18bea7fd3e112060b0b8528c7d7302e19603a03fa13fa9388973f0e553"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\table_tools\\html_grid.py",
+      "destination": "table_tools\\html_grid.py",
+      "sha256": "5189062b5edd7518a13dc22197f6890bb31fd74153d3c349a21ba5ed04445bcd"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\table_tools\\service.py",
+      "destination": "table_tools\\service.py",
+      "sha256": "afad163f85847dd18100b84519b516beb7a700612be75b068629d5fc0163f004"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\table_tools\\strict_json.py",
+      "destination": "table_tools\\strict_json.py",
+      "sha256": "049e7b3fbe3f85e79be4291daac5354db78a34b4d1ea04ba64109c77c01d63f6"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\table_tools\\__init__.py",
+      "destination": "table_tools\\__init__.py",
+      "sha256": "cb02ee1b9571828eec7178d8f1c16ece16e77bdca05c37fe250b97e1ab645597"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\table_tools_cli.py",
+      "destination": "table_tools_cli.py",
+      "sha256": "a92ed9b3a899b211667a1e4f46fcd9ccb062091b4ab9a8a617094e0a05ca5fba"
+    },
+    {
+      "source": "D:\\PS\\search\\loop_agent\\table_tools_demo.py",
+      "destination": "table_tools_demo.py",
+      "sha256": "9b558182e8fd05ee779f5dc9763d17c70c22a083519ea42d5dca67eaf4bfb6a2"
+    }
+  ]
+}

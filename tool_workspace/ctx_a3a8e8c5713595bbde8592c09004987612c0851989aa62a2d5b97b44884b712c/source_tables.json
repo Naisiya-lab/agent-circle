@@ -1,0 +1,10 @@
+{
+  "tables": [
+    {
+      "id": "t1",
+      "html": "<table><caption>Tool example</caption>\n<thead><tr><th>Item</th><th colspan=\"2\">Values</th></tr></thead>\n<tbody><tr><td rowspan=\"2\">A</td><td>4005000000</td><td></td></tr>\n<tr><td style=\"background-color:yellow\" data-highlight=\"true\">95</td><td>22.1%</td></tr>\n<tr><td></td><td></td><td></td></tr>\n<tr><td></td><td></td><td></td></tr>\n<tr><td>B</td><td>4005000000</td><td></td></tr></tbody></table>"
+    }
+  ],
+  "coverage": "unspecified",
+  "uncertainties": []
+}

@@ -1,0 +1,27 @@
+{
+  "date": "2026-10-24",
+  "upstream": "https://github.com/SpursGoZmy/Table-LLaVA/tree/main/MMTab-eval_evaluation",
+  "note": "Preserved official-source cache obtained in the earlier evaluation audit. A fresh direct download failed on 2026-10-24; no assertion that this equals the current remote HEAD. No evaluator modifications. IBM TEDS headers retained.",
+  "files": [
+    {
+      "name": "MMTab_evaluation.ipynb",
+      "sha256": "46fba85fc1661ea97bc1e63d306bded71175a0ea5bf55d9bf727d1749b392112",
+      "cache_source": "D:\\PS\\search\\loop_agent\\analysis\\routeA200_metrics_20261022\\official_source\\MMTab_evaluation.ipynb"
+    },
+    {
+      "name": "metric.py",
+      "sha256": "f4a0e819469358350e0cd601d02b7aaa87b95975a7b4d87fb8ea8ac8baf7ebbe",
+      "cache_source": "D:\\PS\\search\\loop_agent\\analysis\\routeA200_metrics_20261022\\official_source\\metric.py"
+    },
+    {
+      "name": "parallel.py",
+      "sha256": "295ef56d50483ac5169b1fff30888ba9722784756a0838cb1ffd2245a27a0cd5",
+      "cache_source": "D:\\PS\\search\\loop_agent\\analysis\\routeA200_metrics_20261022\\official_source\\parallel.py"
+    },
+    {
+      "name": "eval_requirements.txt",
+      "sha256": "8cd2b6452602bbb30d62473b23553e16bffc9a01ed6ab58c59bcc64dcc32b2b3",
+      "cache_source": "D:\\PS\\search\\loop_agent\\analysis\\routeA200_metrics_20261022\\official_source\\eval_requirements.txt"
+    }
+  ]
+}

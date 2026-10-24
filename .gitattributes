@@ -1,0 +1,3 @@
+# Preserve file bytes and recorded hashes; keep Linux launch scripts on LF.
+* -text
+*.sh text eol=lf

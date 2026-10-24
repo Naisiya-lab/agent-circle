@@ -1,0 +1,21 @@
+{
+  "model_id": "llava-hf/llava-v1.6-vicuna-7b-hf",
+  "nominal_size_b": 7,
+  "revision": "",
+  "api_key_env": "MODEL_API_KEY",
+  "require_key": false,
+  "request_options": {
+    "temperature": 0,
+    "stream_options": {
+      "include_usage": true
+    }
+  },
+  "context_tokens": 4096,
+  "server_only": "Requires deployment smoke test on the remote GPU host; not downloaded or tested locally.",
+  "max_tokens": {
+    "understand": 2048,
+    "select": 1024,
+    "solve": 1024,
+    "check": 1024
+  }
+}

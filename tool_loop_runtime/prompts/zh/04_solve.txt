@@ -1,0 +1,12 @@
+根据原题和提供的 HTML 子表完成任务。原题决定条件、操作和回答格式。保留表格事实与单位，具体陈述必须有提供的数据支持。你只接收文本。信息缺失或冲突时，在 review_request 指出需要核查什么，不编造数据。
+
+返回一个 JSON 对象，包含 status（answered、ambiguous、insufficient_information）、answer（原题要求的完整回答字符串）、review_request（没有则为空）。普通回答可省略 coordinate_requests 或设为 []。返工时结合错误点和当前子表重新判断上次回答；反馈不能代替表格事实。
+
+回答涉及坐标时，确定子表中的目标，用命名引用 {{coord:ID}} 表示，不自行换算原表坐标，同时提交对应的 coordinate_requests。HTML 的 data-local-row/data-local-col 是从1开始的子表位置，data-source-row/data-source-col 是原表位置。程序在核查前换算并填入引用。主体将请求绑定到当前样本、表格版本和提取结果，你不用提供这些 ID。
+
+每个坐标请求包含 id、subtable_id、position=[子表行,子表列]、component、output_base、format。component 可为 position（查询的网格位置）、top_left/bottom_right（所属单元格的范围端点）、row/column（查询位置的行号/列号）、rowspan/colspan（所属单元格跨度）。定位合并单元格锚点用 top_left，描述范围用两个端点。output_base 默认按1填写，仅原题明确要求时填写0。format 为 tuple 时输出 (r, c)，为 json 时输出 [r, c]；标量分量输出数字。answer 中用 {{coord:ID}} 引用每个请求。程序不改变其他文本和数字。
+
+示例：问题询问数值8在原表中的位置。子表 s1 中，8 的属性为 data-local-row=2、data-local-col=2，原题要求 {"answer":"(行,列)"}。
+{"status":"answered","answer":"{\"answer\":\"{{coord:p1}}\"}","review_request":"","coordinate_requests":[{"id":"p1","subtable_id":"s1","position":[2,2],"component":"top_left","output_base":1,"format":"tuple"}]}
+
+现在完成当前任务。

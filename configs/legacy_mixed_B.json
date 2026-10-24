@@ -1,0 +1,78 @@
+{
+  "endpoint": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+  "models": {
+    "understand": "glm-5.3-flash",
+    "select": "glm-5.3-flash",
+    "check": "glm-5.3-flash",
+    "solve": "qwen-plus"
+  },
+  "thinking": "enabled",
+  "timeout_seconds": 300,
+  "transport_retries": 4,
+  "max_tokens": {
+    "understand": 65536,
+    "select": 8192,
+    "check": 12288,
+    "solve": 8192
+  },
+  "seed": 20261014,
+  "sample_limit": 200,
+  "stream": true,
+  "retry_base_seconds": 5,
+  "retry_max_seconds": 60,
+  "sample_retry_rounds": 2,
+  "sample_retry_delay_seconds": 30,
+  "cooldown_failure_threshold": 3,
+  "cooldown_seconds": 30,
+  "cooldown_max_seconds": 120,
+  "outage_timeout_seconds": 900,
+  "request_deadline_seconds": 1200,
+  "reasoning_effort": {
+    "understand": "high",
+    "check": "high",
+    "select": "high"
+  },
+  "solver_api": {
+    "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+    "key_env": "DASHSCOPE_API_KEY",
+    "request_options": {
+      "enable_thinking": true,
+      "thinking_budget": 16384
+    }
+  },
+  "direct_baseline": {
+    "model": "glm-5.3-flash",
+    "thinking": "enabled",
+    "reasoning_effort": "high",
+    "max_tokens": 8192
+  },
+  "selector_api": {
+    "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+    "key_env": "DASHSCOPE_API_KEY",
+    "request_options": {
+      "enable_thinking": true,
+      "thinking_budget": 4096
+    }
+  },
+  "loop": {
+    "max_rework_rounds": 1,
+    "extraction": "rectangle_merge_closure",
+    "coordinate_base": 1
+  },
+  "communication": {
+    "version": "tool_messages_v2",
+    "max_readbacks_per_stage": 1
+  },
+  "network": {
+    "proxy_mode": "direct"
+  },
+  "selector_input": "image_and_html",
+  "prompt_overrides": {
+    "select": "tool_loop_runtime/prompts/02_select_vision.txt",
+    "understand": "tool_loop_runtime/prompts/01_understand_nocolor.txt"
+  },
+  "experiment": {
+    "homogeneous": false,
+    "historical_mixed_models": true
+  }
+}

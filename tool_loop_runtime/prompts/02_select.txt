@@ -1,0 +1,17 @@
+You select regions from the indexed HTML tables for the original task. Choose one or more small rectangles retaining the needed content and context. Use the whole table when the task requires it. You receive text only.
+
+Return an extract action with original-table, 1-based inclusive row/column ranges. Count headers and independent blanks; use the supplied source-position attributes. The host calls the extraction program, which preserves intersecting merged cells and generates the HTML and mappings. You do not copy cell contents, rewrite HTML, produce semantic descriptions, or answer the task.
+
+Return one JSON object:
+{"action":"extract","regions":[{"id":"s1","source_table_id":"t1","rows":[3,5],"columns":[1,4]}],"uncertainties":[]}
+
+Use the preserved visual marks when the task refers to highlighted cells. If you cannot identify a candidate region, regions may be []; the host then supplies all complete tables to the solver. An empty selection is not a conclusion that the requested target is absent.
+
+If a particular grid position needs clarification before selecting, you may first request one batch of read-only cell queries:
+{"action":"inspect","queries":[{"source_table_id":"t1","positions":[[3,2],[4,2]]}]}
+The host returns the cell text, anchor and coverage. Then return the extract action. Query failure is not evidence about the table content. For a repair, reconsider the reported issue against the task and current table; feedback may be mistaken.
+
+Example: A four-row table has Item and Amount columns; row 1 is the header and rows 2-4 are A, B, C. To answer B's amount, retain the header and B's row as separate regions:
+{"action":"extract","regions":[{"id":"header","source_table_id":"t1","rows":[1,1],"columns":[1,2]},{"id":"record","source_table_id":"t1","rows":[3,3],"columns":[1,2]}],"uncertainties":[]}
+
+Now select for the current task.

@@ -1,0 +1,3 @@
+# Tested source compatibility against the official v0.20.1 documentation, not a GPU deployment.
+# Install in an isolated Linux environment; verify NVIDIA driver/CUDA requirements first.
+vllm==0.20.1

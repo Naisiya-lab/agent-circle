@@ -1,0 +1,15 @@
+{
+  "model_id": "Qwen/Qwen2-VL-7B-Instruct",
+  "nominal_size_b": 7,
+  "revision": "",
+  "api_key_env": "MODEL_API_KEY",
+  "require_key": false,
+  "request_options": {
+    "temperature": 0,
+    "stream_options": {
+      "include_usage": true
+    }
+  },
+  "context_tokens": 32768,
+  "server_only": "Requires deployment smoke test on the remote GPU host; not downloaded or tested locally."
+}

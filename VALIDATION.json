@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-24",
+  "tests": {
+    "command": "python -m unittest discover -s tests -q",
+    "count": 91,
+    "failures": 0,
+    "elapsed_seconds": 5.968,
+    "network": "Only one test uses a fake HTTP service at 127.0.0.1; no external API calls. Windows sandbox blocks localhost sockets, so this offline test command ran with approved local execution."
+  },
+  "static_checks": {
+    "python_compile": true,
+    "json_config_files": 12,
+    "shell_files_lf": 16,
+    "cli_help": true,
+    "original_source_hashes_unchanged": 25
+  },
+  "not_tested": [
+    "Real model inference or accuracy",
+    "A800 / vLLM deployment",
+    "Linux Bash runtime or bash -n (Bash not installed locally)",
+    "Paid APIs and closed model availability"
+  ],
+  "data_policy": "Dataset will be downloaded separately on the remote machine. No local dataset included or required."
+}

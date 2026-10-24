@@ -1,0 +1,8 @@
+{
+  "model_id": "qwen-vl-plus",
+  "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+  "api_key_env": "DASHSCOPE_API_KEY",
+  "require_key": true,
+  "request_options": {},
+  "note": "Provider alias must be version-pinned where possible; no availability or billing probe performed."
+}

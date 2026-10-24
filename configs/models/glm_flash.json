@@ -1,0 +1,13 @@
+{
+  "model_id": "glm-5.3-flash",
+  "endpoint": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+  "api_key_env": "ZHIPU_API_KEY",
+  "require_key": true,
+  "request_options": {
+    "thinking": {
+      "type": "enabled"
+    },
+    "reasoning_effort": "high"
+  },
+  "note": "Provider alias must be version-pinned where possible; no availability or billing probe performed."
+}

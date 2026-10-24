@@ -1,0 +1,7 @@
+# Follow the preserved official MMTab evaluation notebook; do not silently change metrics.
+sacrebleu==2.6.0
+apted==1.0.3
+distance==0.1.3
+lxml
+tqdm
+pylatexenc==2.10
