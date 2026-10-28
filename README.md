@@ -6,6 +6,7 @@
 - [框架与通信](docs/FRAMEWORK.md)
 - [迁移范围与验证状态](docs/MIGRATION.md)
 - [评估来源及导出](evaluation/README.md)
+- [Qwen2.5-VL-7B四卡全量：先循环、后基线](docs/FULL_QWEN25_7B_4GPU.md)
 
 ## 目录
 

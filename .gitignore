@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 .venv/
 scripts/env.local.sh
+scripts/full_qwen25_7b_4gpu.env.local.sh
 runs/*
 prepared/*
 offline_checks/

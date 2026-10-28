@@ -20,5 +20,23 @@
     "Linux Bash runtime or bash -n (Bash not installed locally)",
     "Paid APIs and closed model availability"
   ],
-  "data_policy": "Dataset will be downloaded separately on the remote machine. No local dataset included or required."
+  "data_policy": "Dataset will be downloaded separately on the remote machine. No local dataset included or required.",
+  "four_gpu_launcher": {
+    "date": "2026-10-29",
+    "suite_tests": 99,
+    "suite_failures": 0,
+    "suite_seconds": 19.591,
+    "new_launcher_tests": 8,
+    "bash_syntax": "Both new shell files passed bash -n using Git Bash.",
+    "checks": [
+      "Exact disjoint shard coverage and preservation",
+      "Four services use tensor parallel 1 and separate CUDA_VISIBLE_DEVICES; existing matching service can be reused",
+      "All circle workers finish before any baseline worker starts",
+      "Early circle interruption prevents baseline start",
+      "Failed/empty predictions retained in merged exports",
+      "Restart preserves the frozen selection and does not rerun completed workers"
+    ],
+    "scope": "Only launch scripts/docs/tests added. Framework, table tools, prompts and inference configs unchanged.",
+    "not_tested": "No connection to remote host and no real A800/vLLM execution."
+  }
 }

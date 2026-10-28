@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-24",
+  "date": "2026-10-29",
   "files": [
     {
       "path": ".gitattributes",
@@ -8,8 +8,8 @@
     },
     {
       "path": ".gitignore",
-      "bytes": 121,
-      "sha256": "a30ea8cae97ea4540250c9a81b5cd02ba02393de956d7c726a43bf0b6d949a08"
+      "bytes": 162,
+      "sha256": "fabdc6d001fb021075e24b393bf5aea972de74c2efbb7df7f8954e3c9724953a"
     },
     {
       "path": "MIGRATION_SOURCE.json",
@@ -18,13 +18,13 @@
     },
     {
       "path": "README.md",
-      "bytes": 4470,
-      "sha256": "7255243ab6126eb408c37c9d6d908e39a08cdaf86b0582ddec02e0f7e3c322c6"
+      "bytes": 4553,
+      "sha256": "7d0e118f71a1eea3bea03a06970c56618b24dda5ed4b06e5d6e3524b767f0165"
     },
     {
       "path": "VALIDATION.json",
-      "bytes": 891,
-      "sha256": "e3a4812402678d651636bf668c3d20a339a9c2c0ae893e3c219998da24750135"
+      "bytes": 1818,
+      "sha256": "bbd0133d91a3d4c08b7b9396f9237e23294d59c67a395f7523672b17d612b66d"
     },
     {
       "path": "agent_circle.py",
@@ -95,6 +95,11 @@
       "path": "docs/FRAMEWORK.md",
       "bytes": 2106,
       "sha256": "d18b209eba6e8d24578db7c62c484ab301ef7d15365d3fecaef81970bedb3339"
+    },
+    {
+      "path": "docs/FULL_QWEN25_7B_4GPU.md",
+      "bytes": 4265,
+      "sha256": "e86efe3a2c7c6837ecf08489a9dbc2a01bbc712c4fa22379c0c1cf9a912aef20"
     },
     {
       "path": "docs/MIGRATION.md",
@@ -175,6 +180,21 @@
       "path": "scripts/env.example.sh",
       "bytes": 1066,
       "sha256": "7ea24d09a4010d1c503ed3fbdf06fe9276f6eff76dad3e428e3300dfa3aac686"
+    },
+    {
+      "path": "scripts/full_qwen25_7b_4gpu.env.example.sh",
+      "bytes": 1040,
+      "sha256": "b99046159afba56ad8521850b7885cc1abc9a3429650ae10fbac1cc176058c9e"
+    },
+    {
+      "path": "scripts/full_qwen25_7b_4gpu.py",
+      "bytes": 19688,
+      "sha256": "fe9fede2ae14185a4d7e2a235d5537f1b30ff33a5d9f995528b08f85df0b9bb4"
+    },
+    {
+      "path": "scripts/full_qwen25_7b_4gpu.sh",
+      "bytes": 958,
+      "sha256": "836bbbe76d2c01528467e994e37289bd7345a5f54dee9a1863dc725ce16576ac"
     },
     {
       "path": "scripts/models/glm_flash.sh",
@@ -275,6 +295,11 @@
       "path": "table_tools_demo.py",
       "bytes": 4075,
       "sha256": "9b558182e8fd05ee779f5dc9763d17c70c22a083519ea42d5dca67eaf4bfb6a2"
+    },
+    {
+      "path": "tests/test_four_gpu_launch.py",
+      "bytes": 9808,
+      "sha256": "f7dcdcc6790ddd69d168d0362fe0f62028728fe77c646cdccc70e39487ec178d"
     },
     {
       "path": "tests/test_http_smoke.py",
@@ -420,6 +445,16 @@
       "path": "tool_loop_runtime/wire_json.py",
       "bytes": 1867,
       "sha256": "b4d6410816f487afaefbe39a084aef322e761922cecc15a5f5a44cac6ecf3b73"
+    },
+    {
+      "path": "tool_workspace/ctx_a3a8e8c5713595bbde8592c09004987612c0851989aa62a2d5b97b44884b712c/context.json",
+      "bytes": 257,
+      "sha256": "1e846a171cff7e782244aaf9bd6628e5b3af3e75bf952502f5c3d3ee02513de1"
+    },
+    {
+      "path": "tool_workspace/ctx_a3a8e8c5713595bbde8592c09004987612c0851989aa62a2d5b97b44884b712c/source_tables.json",
+      "bytes": 531,
+      "sha256": "722822c452a3c391c226f8fec804df20f1359d49ff53d2191a9af7a1c83e1392"
     }
   ]
 }
