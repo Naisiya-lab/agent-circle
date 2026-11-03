@@ -75,10 +75,16 @@ def scan_run(root, rows, mode):
     root = Path(root)
     result_name = 'result.json' if mode == 'circle' else 'direct_result.json'
     counts = dict(selected=len(rows), terminal_records=0, nonretryable_errors=0,
-                  retryable_errors=0, pending=0)
+                  retryable_errors=0, pending=0, service_failures=0)
     for row in rows:
         folder = root / 'samples' / row['id']
-        if (folder / result_name).is_file():
+        if (folder/'error.json').exists() and read(folder/'error.json').get('fatal', False):
+            counts['service_failures'] += 1
+        result_path=folder/result_name
+        retry_plan=folder/'tool_retry_plan.json'
+        if result_path.exists() and retry_plan.exists() and read(retry_plan).get('state')=='in_progress' and read(retry_plan).get('from_result_sha256')==sha(result_path):
+            counts['pending'] += 1
+        elif result_path.is_file():
             counts['terminal_records'] += 1
         elif (folder / 'error.json').is_file():
             error = read(folder / 'error.json')
@@ -86,7 +92,9 @@ def scan_run(root, rows, mode):
             counts[key] += 1
         else:
             counts['pending'] += 1
-    counts['all_processed'] = counts['pending'] == 0 and counts['retryable_errors'] == 0
+    # A recoverable failure remains eligible for a later retry, but is still
+    # an attempted item in this pass. Never drop it from exports/denominators.
+    counts['all_processed'] = counts['pending'] == 0 and counts['service_failures'] == 0
     summary = root / 'summary.json'
     if summary.exists():
         counts['verification_status'] = read(summary).get('verification_status', {})
@@ -287,7 +295,7 @@ def export_phase(args, mode, rows, shards):
 
 def execute_phase(args, mode, rows, shards):
     current = phase_status(args, mode, shards)
-    if phase_complete(current):
+    if phase_complete(current) and not getattr(args, "retry_errors", False):
         print(f'{mode}: all samples already processed; reusing saved results', flush=True)
         export_phase(args, mode, rows, shards)
         return
@@ -304,6 +312,8 @@ def execute_phase(args, mode, rows, shards):
                        '--mode', mode, '--route', 'B',
                        '--model-profile', str(args.project / 'configs/models/qwen25_vl_7b.json'),
                        '--source', str(path), '--run', name]
+            if getattr(args, 'retry_errors', False):
+                command += ['--retry-errors']
             log = args.control_root / f'{mode}_s{index}.console.log'
             with log.open('ab') as output:
                 process = subprocess.Popen(command, cwd=args.project, env=env, stdin=subprocess.DEVNULL,
@@ -343,6 +353,7 @@ def main():
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--experiment', required=True)
     parser.add_argument('--model-name', default='qwen25-vl-7b')
+    parser.add_argument('--retry-errors', action='store_true', help='Retry communication/tool-limited results without rerunning completed answers')
     parser.add_argument('--gpus', default='0,1,2,3')
     parser.add_argument('--first-port', type=int, default=8000)
     parser.add_argument('--context', type=int, default=32768)

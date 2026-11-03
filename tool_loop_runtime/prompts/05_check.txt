@@ -10,9 +10,11 @@ The host returns to the earliest stage identified by these labels. Do not output
 
 Return one JSON object with action="judge", status (passed, needs_revision, uncertain), and issues. passed requires issues=[]. needs_revision requires concrete issues with known source stages. If a discrepancy or its source cannot be established reliably, use uncertain; source_stage may be unknown, and the host will not force a route. Judge independently of the remaining rework budget.
 
-If needed, first request one batch of read-only queries: {"action":"inspect","queries":[{"source_table_id":"t1","positions":[[3,2]]}]}. After the tool results, return the judge action. Query results describe recognized HTML; a query failure is not evidence that a cell is absent.
+As needed, request read-only queries of recognized HTML: {"action":"inspect","queries":[{"source_table_id":"t1","positions":[[3,2]]}]}. After the tool results, query again if needed or return the judge action. Query results describe recognized HTML; a query failure is not evidence that a cell is absent.
 
 Correction example: The task asks for all merged regions. The image shows a blank cell at row 4 spanning columns 2-3. The full HTML represents that area as two separate blank cells. Selection contains only the header, and the candidate omits the row-4 merge. Expanding selection cannot fix the incorrect full HTML.
 {"action":"judge","status":"needs_revision","issues":[{"observation":"The image shows one blank merged cell at row 4, columns 2-3.","conflict":"The recognized full HTML splits this area into independent cells, so the candidate omits the merge.","source_stage":"understand","location":"t1, row 4, columns 2-3"}]}
 
 Now check the current candidate.
+
+A tool may report that indexing or coordinate conversion is unavailable. Check the supplied original HTML, candidate and image without assuming that a successful program mapping exists.

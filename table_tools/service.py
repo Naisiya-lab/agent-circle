@@ -51,13 +51,13 @@ class TableTools:
             if type(item) is not dict or type(item.get("id")) is not str or type(item.get("html")) is not str:
                 raise ProgramError("INVALID_UNDERSTANDING", "Each table needs string id and html", recovery="revise_understanding")
         coverage, uncertainties = understanding.get("coverage", "unspecified"), understanding.get("uncertainties", [])
-        if coverage not in ("complete", "partial", "unspecified") or type(uncertainties) is not list:
-            raise ProgramError("INVALID_UNDERSTANDING", "Invalid optional coverage/uncertainties fields", recovery="revise_understanding")
         normalized = {"tables": deepcopy(understanding["tables"]), "coverage": coverage, "uncertainties": deepcopy(uncertainties)}
         try:
             self._tables, self._catalog = build_index(normalized)
         except TableToolError as exc:
-            raise ProgramError("HTML_GRID_INVALID", str(exc), recovery="revise_understanding") from exc
+            raise ProgramError("HTML_GRID_INVALID", str(exc), recovery="use_available_html") from exc
+        except MemoryError as exc:
+            raise ProgramError("RESOURCE_EXHAUSTED", "Insufficient memory to build the table grid", recovery="use_available_html") from exc
         # Include source markup, not just normalized cells: attribute-only changes
         # also invalidate references. Indexing never overwrites the source HTML.
         self.table_version = fingerprint({"grid": self._catalog["table_version"], "tables": normalized["tables"]})
@@ -107,7 +107,7 @@ class TableTools:
                     try:
                         arguments = DECODER.decode(arguments)
                     except ValueError as exc:
-                        raise ProgramError("INVALID_ARGUMENTS", "Tool arguments must be one strict JSON object") from exc
+                        raise ProgramError("INVALID_ARGUMENTS", "Tool arguments must be one readable JSON object") from exc
                 errors = validate(arguments, SPECS[name]["parameters"])
                 if errors:
                     raise ProgramError("INVALID_ARGUMENTS", "Invalid table-program parameters", details={"errors": errors})
@@ -120,6 +120,10 @@ class TableTools:
             except ProgramError as exc:
                 response = {"ok": False, "tool": name, "tool_version": VERSION, "context_id": self.context_id,
                             "table_version": self.table_version, "data": None, "error": exc.record()}
+            except MemoryError:
+                response = {"ok": False, "tool": name, "tool_version": VERSION, "context_id": self.context_id,
+                            "table_version": self.table_version, "data": None,
+                            "error": ProgramError("RESOURCE_EXHAUSTED", "Insufficient memory for the requested operation").record()}
             except OSError:
                 response = {"ok": False, "tool": name, "tool_version": VERSION, "context_id": self.context_id,
                             "table_version": self.table_version, "data": None,

@@ -61,6 +61,8 @@ class FakeClient:
             raise value
         if callable(value):
             value = value(body)
+        if isinstance(value, dict) and "_raw_response" in value:
+            return value["_raw_response"]
         return {"choices": [{"finish_reason": "stop", "message": {"content": value if type(value) is str else json.dumps(value)}}],
                 "usage": {"prompt_tokens": 4, "completion_tokens": 3, "total_tokens": 7}}
 
@@ -89,7 +91,7 @@ class IntegrationTests(unittest.TestCase):
     def test_normal_path_has_four_model_calls_and_minimal_solver_input(self):
         result, client = self.execute([understood(), selected(), solved(), checked()])
         self.assertEqual([x[0] for x in client.calls], ["understand", "select", "solve", "check"])
-        self.assertEqual(result["counts"], {"model_calls": 4, "tool_calls": 3, "rework_rounds": 0})
+        self.assertEqual({k:result["counts"][k] for k in ("model_calls","tool_calls","rework_rounds")}, {"model_calls": 4, "tool_calls": 3, "rework_rounds": 0})
         self.assertEqual(set(context(client.calls[2][2])), {"task", "subtables"})
         self.assertNotIn("source_cells", context(client.calls[2][2])["subtables"][0])
         self.assertEqual(result["verification_status"], "passed")
@@ -103,7 +105,7 @@ class IntegrationTests(unittest.TestCase):
         answer = dict(solved('The target cannot be established'), status='insufficient_information')
         result, client = self.execute([understood(), empty, answer, checked()])
         self.assertFalse(result['rework_used'])
-        self.assertEqual(result['counts'], {'model_calls':4, 'tool_calls':3, 'rework_rounds':0})
+        self.assertEqual({k:result['counts'][k] for k in ('model_calls','tool_calls','rework_rounds')}, {'model_calls':4, 'tool_calls':3, 'rework_rounds':0})
         self.assertEqual(result['status'], 'insufficient_information')
         self.assertEqual(result['answer'], answer['answer'])
         actual = context(client.calls[2][2])['subtables'][0]
@@ -253,17 +255,21 @@ class IntegrationTests(unittest.TestCase):
         self.assertTrue(reply["ok"])
         self.assertEqual(reply["table_version"], result["identity"]["table_version"])
 
-    def test_repeated_selector_read_is_bounded(self):
-        result, client = self.execute([understood(), inspect(), inspect()])
-        self.assertEqual(len(client.calls), 3)
-        self.assertEqual(result["verification_status"], "tool_failed")
-        self.assertIsNone(result["final"])
+    def test_repeated_selector_reads_continue_without_content_rework(self):
+        result, client = self.execute([understood(), inspect(), inspect(), inspect(), selected(), solved(), checked()])
+        self.assertEqual([x[0] for x in client.calls], ['understand','select','select','select','select','solve','check'])
+        self.assertEqual(result['counts']['tool_queries'],3)
+        self.assertEqual(result['counts']['rework_rounds'],0)
+        self.assertEqual(result['verification_status'],'passed')
 
-    def test_repeated_checker_read_keeps_candidate_unverified(self):
-        result, client = self.execute([understood(), selected(), solved(), inspect(), inspect()])
-        self.assertEqual(result["answer"], "8")
-        self.assertIsNone(result["checker_output"])
-        self.assertEqual(result["verification_status"], "tool_failed")
+
+    def test_repeated_checker_reads_continue_with_same_candidate(self):
+        result, client = self.execute([understood(), selected(), solved(), inspect(), inspect(), inspect(), checked()])
+        self.assertEqual(result['answer'],'8')
+        self.assertEqual(result['counts']['tool_queries'],3)
+        self.assertEqual(result['counts']['rework_rounds'],0)
+        self.assertTrue(all(context(x[2])['candidate']['answer']=='8' for x in client.calls if x[0]=='check'))
+
 
     def test_selection_rework_preserves_table_but_changes_extraction(self):
         result, client = self.execute([understood(), selected(), solved(), checked("select"), selected((2, 2), (2, 2)), solved(), checked()])
@@ -295,44 +301,57 @@ class IntegrationTests(unittest.TestCase):
         self.assertIn("repair_feedback", second)
         self.assertEqual(len(list(self.folder.glob('*03t_extract.json'))), 1)
 
-    def test_invalid_reference_returns_to_solver_and_uses_shared_quota(self):
-        result, client = self.execute([understood(), selected(), solved('{{coord:missing}}'), solved("8"), checked()])
-        self.assertEqual([x[0] for x in client.calls], ["understand", "select", "solve", "solve", "check"])
-        self.assertEqual(result["rework_target"], "solve")
-        self.assertEqual(result["counts"]["rework_rounds"], 1)
+    def test_coordinate_argument_repair_does_not_consume_content_rework(self):
+        result, client = self.execute([understood(), selected(), solved('{{coord:missing}}'), solved('8'), checked()])
+        self.assertEqual([x[0] for x in client.calls], ['understand','select','solve','solve','check'])
+        self.assertEqual(result['counts']['rework_rounds'],0)
+        self.assertEqual(result['counts']['tool_input_repairs'],1)
 
-    def test_twice_bad_coordinate_does_not_publish_template_as_answer(self):
-        invalid = solved('{{coord:p1}}', [request(position=(999, 1))])
-        result, client = self.execute([understood(), selected(), invalid, invalid])
-        self.assertEqual(result["answer"], "")
-        self.assertIsNone(result["final"])
-        self.assertEqual(result["verification_status"], "tool_failed")
 
-    def test_duplicate_and_unused_coordinate_requests_fail_explicitly(self):
-        for output in (solved('{{coord:p1}}', [request(), request()]), solved('8', [request()])):
-            # Use separate sample state so cached requests do not cross cases.
+    def test_bad_coordinates_reach_checker_with_explicit_tool_errors(self):
+        invalid = solved('{{coord:p1}}', [request(position=(999,1))])
+        result, client = self.execute([understood(),selected(),invalid,invalid,invalid,checked(status='uncertain')])
+        self.assertEqual(result['answer'],'{{coord:p1}}')
+        self.assertEqual(result['execution_status'],'tool_limited')
+        self.assertIn('coordinate_tool_errors',context(client.calls[-1][2]))
+        self.assertEqual(result['counts']['rework_rounds'],0)
+
+
+    def test_duplicate_equal_and_unused_coordinates_do_not_fail(self):
+        for output, expected in ((solved('{{coord:p1}}', [request(),request()]),'(1, 1)'), (solved('8',[request()]),'8')):
             self.folder = self.root/('case_'+str(len(list(self.root.iterdir()))))
-            result, _ = self.execute([understood(), selected(), output, output])
-            self.assertEqual(result["verification_status"], "tool_failed")
+            result, client = self.execute([understood(),selected(),output,checked()])
+            self.assertEqual(result['answer'],expected)
+            self.assertEqual(len(client.calls),4)
+            self.assertEqual(result['execution_status'],'completed')
 
-    def test_invalid_html_returns_understanding_and_does_not_guess_blanks(self):
+
+    def test_invalid_grid_forwards_html_and_only_checker_can_request_understanding(self):
         bad = understood('<table><tr><td>A</td><td>B</td></tr><tr><td>C</td></tr></table>')
-        result, client = self.execute([bad, understood(), selected(), solved(), checked("select")])
-        self.assertEqual([x[0] for x in client.calls], ["understand", "understand", "select", "solve", "check"])
-        self.assertEqual(result["verification_status"], "needs_revision")
-        self.assertEqual(result["termination_reason"], "rework_budget_exhausted")
+        result, client = self.execute([bad,selected(),solved('three cells'),checked('understand'),understood(),selected(),solved(),checked()])
+        self.assertEqual([x[0] for x in client.calls], ['understand','select','solve','check','understand','select','solve','check'])
+        first_solver=context(client.calls[2][2])
+        self.assertEqual(first_solver['tables'],bad['tables'])
+        self.assertEqual(first_solver['subtables'],[])
+        self.assertFalse(first_solver['mapping_available'])
+        self.assertEqual(result['counts']['rework_rounds'],1)
+        self.assertEqual(result['execution_status'],'completed')
+
 
     def test_second_checker_failure_is_not_converted_to_pass(self):
         result, _ = self.execute([understood(), selected(), solved(), checked("select"), selected(), solved(), checked("understand")])
         self.assertEqual(result["verification_status"], "needs_revision")
         self.assertEqual(result["counts"]["model_calls"], 7)
 
-    def test_host_storage_failure_does_not_ask_model_to_fix_table(self):
-        with patch('tool_loop_runtime.communication.TableTools', side_effect=ProgramError('STATE_IO_ERROR', 'storage failed', recovery='fix_host_storage')):
-            result, client = self.execute([understood()])
-        self.assertEqual(len(client.calls), 1)
-        self.assertFalse(result["rework_used"])
-        self.assertEqual(result["verification_status"], "tool_failed")
+    def test_host_storage_failure_retries_tool_then_forwards_error(self):
+        with patch('tool_loop_runtime.communication.TableTools',side_effect=ProgramError('STATE_IO_ERROR','storage failed',recovery='fix_host_storage')) as tool:
+            result,client=self.execute([understood(),selected(),solved('8'),checked(status='uncertain')])
+        self.assertEqual(tool.call_count,3)
+        self.assertEqual(len(client.calls),4)
+        self.assertEqual(result['execution_status'],'tool_limited')
+        self.assertEqual(result['counts']['rework_rounds'],0)
+        self.assertEqual(result['counts']['tool_execution_retries'],2)
+
 
     def test_resume_after_query_does_not_repeat_model_requests(self):
         first = FakeClient([understood(), inspect(), KeyboardInterrupt()])
@@ -371,7 +390,7 @@ class IntegrationTests(unittest.TestCase):
         self.execute([understood(), selected(), solved(), checked()])
         flow.transport.save_json(self.root/'selected.json', [self.row])
         summary = runner.report(self.root)
-        self.assertEqual(summary['execution_counts'], {'model_calls': 4, 'tool_calls': 3, 'rework_rounds': 0})
+        self.assertEqual({k:summary['execution_counts'][k] for k in ('model_calls','tool_calls','rework_rounds')}, {'model_calls': 4, 'tool_calls': 3, 'rework_rounds': 0})
         self.assertNotIn('accuracy', summary)
 
 
@@ -380,31 +399,31 @@ class ProtocolTests(unittest.TestCase):
         with self.assertRaises(ProtocolError):
             decode(json.dumps({'regions': [], 'uncertainties': []}), 'select')
 
-    def test_coordinate_types_and_components_are_explicit(self):
-        for item in (request(position=(True, 1)), dict(request(), output_base=True), dict(request(), component='guess')):
-            with self.assertRaises(ProtocolError):
-                decode(json.dumps(solved('{{coord:p1}}', [item])), 'solve')
+    def test_coordinate_arguments_are_not_an_answer_schema_gate(self):
+        for item in (request(position=(True,1)),dict(request(),output_base=True),dict(request(),component='guess')):
+            value=solved('{{coord:p1}}',[item])
+            self.assertEqual(decode(json.dumps(value),'solve'),value)
 
-    def test_pass_requires_consistent_route(self):
-        with self.assertRaises(ProtocolError):
-            decode(json.dumps(dict(checked(), return_to='solve')), 'check')
 
-    def test_checker_requires_observation_conflict_location_and_stage(self):
+    def test_checker_route_field_is_not_a_reason_to_reject_message(self):
+        value=dict(checked(),return_to='solve')
+        self.assertEqual(decode(json.dumps(value),'check'),value)
+
+
+    def test_checker_optional_explanatory_fields_do_not_block_communication(self):
         for field in ('observation','conflict','location','source_stage'):
-            value = checked('select')
-            value['issues'][0].pop(field)
-            with self.assertRaises(ProtocolError):
-                decode(json.dumps(value),'check')
+            value=checked('select');value['issues'][0].pop(field)
+            self.assertEqual(decode(json.dumps(value),'check'),value)
 
-    def test_unknown_source_requires_uncertain_status(self):
-        with self.assertRaises(ProtocolError):
-            decode(json.dumps(checked('unknown')),'check')
-        self.assertEqual(decode(json.dumps(checked('unknown',status='uncertain')),'check')['status'],'uncertain')
 
-    def test_pass_with_an_issue_or_legacy_checker_fields_is_rejected(self):
-        for value in (checked('select',status='passed'), {'action':'judge','status':'needs_revision','return_to':'select','issues':[{'problem':'x','location':'y'}]}):
-            with self.assertRaises(ProtocolError):
-                decode(json.dumps(value),'check')
+    def test_parser_does_not_judge_checker_status_issue_consistency(self):
+        self.assertEqual(decode(json.dumps(checked('unknown')),'check'),checked('unknown'))
+
+
+    def test_checker_content_combinations_are_forwarded_without_host_judgment(self):
+        for value in (checked('select',status='passed'),{'action':'judge','status':'needs_revision','return_to':'select','issues':[{'problem':'x','location':'y'}]}):
+            self.assertEqual(decode(json.dumps(value),'check'),value)
+
 
 
 if __name__ == '__main__':

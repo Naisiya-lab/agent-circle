@@ -20,8 +20,6 @@
   "stream": true,
   "retry_base_seconds": 5,
   "retry_max_seconds": 60,
-  "sample_retry_rounds": 2,
-  "sample_retry_delay_seconds": 30,
   "cooldown_failure_threshold": 3,
   "cooldown_seconds": 30,
   "cooldown_max_seconds": 120,
@@ -59,8 +57,8 @@
     "coordinate_base": 1
   },
   "communication": {
-    "version": "tool_messages_v2",
-    "max_readbacks_per_stage": 1
+    "version": "tool_messages_v3",
+    "format_retries": 2
   },
   "network": {
     "proxy_mode": "direct"
@@ -68,5 +66,11 @@
   "experiment": {
     "homogeneous": false,
     "historical_mixed_models": true
-  }
+  },
+  "tools": {
+    "execution_retries": 2,
+    "input_retries": 2,
+    "position_batch_size": 64
+  },
+  "context_budget_adaptation": true
 }

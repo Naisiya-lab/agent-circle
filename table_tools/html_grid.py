@@ -60,31 +60,66 @@ class Cell:
 
 
 class Reader(HTMLParser):
-    """Require explicit rows/cells. Never invent missing trailing blank cells."""
-    INLINE = {"b", "strong", "i", "em", "u", "s", "sub", "sup", "span",
-              "small", "p", "div", "br", "a", "font", "code"}
+    """Read table structure tolerantly without inventing rows or cells."""
+    INLINE = {"b", "strong", "i", "em", "u", "s", "sub", "sup", "span", "small", "p", "div", "br", "a", "font", "code", "mark", "ul", "ol", "li", "dl", "dt", "dd"}
     GROUPS = {"thead", "tbody", "tfoot"}
 
     def __init__(self, source):
         super().__init__(convert_charrefs=True)
         self.rows, self.current_row, self.current_cell = [], None, None
-        self.in_table = False
-        self.table_count = 0
-        self.caption = None
-        self.in_caption = False
-        self.caption_parts = []
-        self.stack = []
+        self.in_table, self.table_count = False, 0
+        self.caption, self.in_caption, self.caption_parts = None, False, []
+        self.stack, self.suppressed = [], []
         self.table_attributes = {}
         self.row_attributes, self.row_groups, self.row_group_ids = [], [], []
         self.current_group, self.group_serial, self.current_row_attributes = None, 0, {}
         self.feed(source)
         self.close()
-        if self.stack or self.in_table or self.in_caption or self.current_group is not None or self.current_row is not None or self.current_cell is not None:
-            raise TableToolError("Unclosed HTML table/row/cell or formatting tag")
+        # Closing markup at EOF never creates new data cells or table content.
+        self.finish_row()
+        self.finish_caption()
+        self.current_group = None
+        self.in_table = False
         if self.table_count != 1 or not self.rows:
             raise TableToolError("Each table HTML must contain exactly one nonempty table")
 
+    def parts(self):
+        return self.current_cell[3] if self.current_cell is not None else self.caption_parts
+
+    def finish_formatting(self):
+        while self.stack:
+            self.parts().append("</"+self.stack.pop()+">")
+
+    def finish_cell(self):
+        if self.current_cell is None:
+            return
+        self.finish_formatting()
+        kind, rs, cs, parts, attrs = self.current_cell
+        self.current_row.append((kind, rs, cs, "".join(parts), attrs))
+        self.current_cell = None
+
+    def finish_row(self):
+        if self.current_row is None:
+            return
+        self.finish_cell()
+        self.rows.append(self.current_row)
+        self.row_attributes.append(self.current_row_attributes)
+        self.row_groups.append(self.current_group)
+        self.row_group_ids.append(self.group_serial)
+        self.current_row = None
+
+    def finish_caption(self):
+        if self.in_caption:
+            self.finish_formatting()
+            self.caption = "".join(self.caption_parts)
+            self.in_caption = False
+
     def handle_starttag(self, tag, attrs):
+        if tag in ("script", "style"):
+            self.suppressed.append(tag)
+            return
+        if self.suppressed:
+            return
         if tag == "table":
             if self.in_table or self.table_count:
                 raise TableToolError("Nested or multiple tables in one HTML entry")
@@ -92,47 +127,50 @@ class Reader(HTMLParser):
             self.in_table = True
             self.table_attributes = safe_attributes(attrs)
         elif tag in self.GROUPS:
-            if not self.in_table or self.current_row is not None or self.current_group is not None or self.in_caption:
-                raise TableToolError("Row group outside table or inside row")
+            self.finish_row()
+            self.finish_caption()
+            if not self.in_table:
+                raise TableToolError("Row group outside table")
             self.group_serial += 1
             self.current_group = (self.group_serial, tag, safe_attributes(attrs))
         elif tag == "caption":
-            if not self.in_table or self.current_row is not None or self.caption is not None:
-                raise TableToolError("Invalid or repeated table caption")
-            self.caption = ""
+            if not self.in_table:
+                return
+            self.finish_caption()
             self.in_caption = True
+            self.caption = ""
         elif tag == "tr":
-            if not self.in_table or self.current_row is not None or self.in_caption:
-                raise TableToolError("Nested row or row outside table")
+            if not self.in_table:
+                raise TableToolError("Row outside table")
+            self.finish_caption()
+            self.finish_row()
             self.current_row = []
             self.current_row_attributes = safe_attributes(attrs)
         elif tag in ("td", "th"):
-            if self.current_row is None or self.current_cell is not None:
-                raise TableToolError("Cell outside row or nested cell")
-            if len({key for key, _ in attrs}) != len(attrs):
-                raise TableToolError("Duplicate cell attributes")
+            if self.current_row is None:
+                raise TableToolError("Cell outside row; no row was invented")
+            self.finish_cell()
             original_attributes = safe_attributes(attrs)
-            attrs = dict(attrs)
             spans = []
             for key in ("rowspan", "colspan"):
+                supplied = [v for k, v in attrs if k == key]
                 try:
-                    value = int(attrs.get(key, "1"))
+                    numbers = [int(v) for v in supplied] or [1]
                 except (ValueError, TypeError) as exc:
                     raise TableToolError("Invalid " + key) from exc
-                if not 1 <= value <= 2000:
-                    raise TableToolError(key + " must be a positive integer <= 2000; expand rowspan=0 explicitly")
+                if len(set(numbers)) != 1:
+                    raise TableToolError("Conflicting " + key + " attributes")
+                value = numbers[0]
+                if value < 0 or (key == "colspan" and value == 0):
+                    raise TableToolError(key + " cannot define this logical grid")
                 spans.append(value)
             self.current_cell = [tag, *spans, [], original_attributes]
-        elif tag in self.INLINE:
-            if self.current_cell is None and not self.in_caption:
-                raise TableToolError("Formatting outside cell/caption: " + tag)
-            # Preserve safe presentation, including explicit highlights and text format.
-            parts = self.current_cell[3] if self.current_cell is not None else self.caption_parts
-            parts.append("<" + tag + render_attributes(safe_attributes(attrs)) + ">")
+        elif tag in self.INLINE and (self.current_cell is not None or self.in_caption):
+            self.parts().append("<"+tag+render_attributes(safe_attributes(attrs))+">")
             if tag != "br":
                 self.stack.append(tag)
-        else:
-            raise TableToolError("Unsupported HTML element: " + tag)
+        # Other presentation/container tags are unwrapped; their visible text
+        # is retained by handle_data. They do not determine source coordinates.
 
     def handle_startendtag(self, tag, attrs):
         self.handle_starttag(tag, attrs)
@@ -140,49 +178,39 @@ class Reader(HTMLParser):
             self.handle_endtag(tag)
 
     def handle_endtag(self, tag):
+        if self.suppressed:
+            if tag == self.suppressed[-1]:
+                self.suppressed.pop()
+            return
         if tag == "table":
-            if not self.in_table or self.current_row is not None or self.in_caption or self.current_group is not None:
-                raise TableToolError("Invalid table closing tag")
+            self.finish_row()
+            self.finish_caption()
+            self.current_group = None
             self.in_table = False
         elif tag in self.GROUPS:
-            if self.current_row is not None or self.current_group is None or self.current_group[1] != tag:
-                raise TableToolError("Row group ends inside row")
+            self.finish_row()
+            if self.current_group is not None and self.current_group[1] != tag:
+                raise TableToolError("Conflicting row group closing tag")
             self.current_group = None
             self.group_serial += 1
         elif tag == "caption":
-            if self.stack or not self.in_caption:
-                raise TableToolError("Unclosed formatting in caption")
-            self.caption = "".join(self.caption_parts)
-            self.in_caption = False
+            self.finish_caption()
         elif tag == "tr":
-            if self.current_row is None or self.current_cell is not None:
-                raise TableToolError("Invalid row closing tag")
-            self.rows.append(self.current_row)
-            self.row_attributes.append(self.current_row_attributes)
-            self.row_groups.append(self.current_group)
-            self.row_group_ids.append(self.group_serial)
-            self.current_row = None
+            self.finish_row()
         elif tag in ("td", "th"):
-            if self.current_cell is None or self.current_cell[0] != tag or self.stack:
-                raise TableToolError("Invalid cell closing tag or unclosed formatting")
-            kind, rs, cs, parts, attrs = self.current_cell
-            self.current_row.append((kind, rs, cs, "".join(parts), attrs))
-            self.current_cell = None
-        elif tag in self.INLINE and tag != "br":
-            if not self.stack or self.stack.pop() != tag:
-                raise TableToolError("Mismatched inline HTML tags")
-            parts = self.current_cell[3] if self.current_cell is not None else self.caption_parts
-            parts.append("</" + tag + ">")
-        elif tag != "br":
-            raise TableToolError("Unsupported closing HTML tag: " + tag)
+            self.finish_cell()
+        elif tag in self.stack:
+            while self.stack:
+                closing = self.stack.pop()
+                self.parts().append("</"+closing+">")
+                if closing == tag:
+                    break
 
     def handle_data(self, data):
-        if self.current_cell is not None:
-            self.current_cell[3].append(escape(data))
-        elif self.in_caption:
-            self.caption_parts.append(escape(data))
-        elif data.strip():
-            raise TableToolError("Text outside a table cell/caption")
+        if self.suppressed:
+            return
+        if self.current_cell is not None or self.in_caption:
+            self.parts().append(escape(data))
 
 
 class Table:
@@ -193,17 +221,20 @@ class Table:
         self.table_attributes = reader.table_attributes
         self.row_attributes, self.row_groups = reader.row_attributes, reader.row_groups
         self.rows = len(reader.rows)
-        if self.rows > 2000:
-            raise TableToolError("More than 2000 logical rows")
         self.grid, self.cells = {}, []
         for r, row in enumerate(reader.rows, 1):
             c = 1
             for kind, rs, cs, content, attrs in row:
                 while (r, c) in self.grid:
                     c += 1
+                if rs == 0:
+                    # HTML rowspan=0 covers the remaining rows of its group.
+                    rs = 1
+                    while r+rs <= self.rows and reader.row_group_ids[r+rs-1] == reader.row_group_ids[r-1]:
+                        rs += 1
                 cell = Cell(r, c, rs, cs, kind, content, attrs)
-                if cell.bottom > self.rows or cell.right > 500:
-                    raise TableToolError(f"{table_id}: span outside declared rows or >500 columns at ({r},{c})")
+                if cell.bottom > self.rows:
+                    raise TableToolError(f"{table_id}: span outside declared rows at ({r},{c})")
                 if any(group != reader.row_group_ids[r-1] for group in reader.row_group_ids[r-1:cell.bottom]):
                     raise TableToolError(f"{table_id}: rowspan crosses an explicit row-group boundary at ({r},{c})")
                 for rr in range(r, cell.bottom + 1):

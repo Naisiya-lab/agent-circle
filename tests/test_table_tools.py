@@ -248,11 +248,11 @@ class GridTests(unittest.TestCase):
                 TableTools("x", source(html))
             self.assertEqual(cm.exception.code, "HTML_GRID_INVALID")
 
-    def test_mismatched_or_unclosed_row_groups_are_rejected(self):
-        for html in ('<table><tbody><tr><td>x</td></tr></thead></table>',
-                     '<table><tbody><tr><td>x</td></tr></table>'):
-            with self.assertRaises(ProgramError):
-                TableTools("x", source(html))
+    def test_conflicting_groups_fail_but_omitted_closing_group_is_readable(self):
+        with self.assertRaises(ProgramError):
+            TableTools('x',source('<table><tbody><tr><td>x</td></tr></thead></table>'))
+        service=TableTools('x',source('<table><tbody><tr><td>x</td></tr></table>'))
+        self.assertEqual(service._catalog['tables'][0]['row_count'],1)
 
     def test_rowspan_cannot_cross_explicit_groups(self):
         html = '<table><thead><tr><td rowspan="2">x</td></tr></thead><tbody><tr></tr></tbody></table>'

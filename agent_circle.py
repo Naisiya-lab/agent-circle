@@ -28,11 +28,20 @@ def main():
         root=runner.run_root(args.run);cfg=runner.transport.read_json(root/'config.json')['config']
         if args.command=='report':
             print(json.dumps((baseline.report if cfg['experiment']['mode']=='baseline' else runner.report)(root),ensure_ascii=False,indent=2));return 0
-        results={r['id']:r for r in runner.transport.read_json(root/'results.json')}
         rows=runner.transport.read_json(root/'selected.json');args.output.parent.mkdir(parents=True,exist_ok=True)
-        # Preserve denominator: failed/pending items are empty, never silently dropped.
-        args.output.write_text(''.join(json.dumps({'question_id':r['id'],'text':results.get(r['id'],{}).get('answer',''),
-            'model_id':cfg['models']['solve'],'metadata':{'completed':r['id'] in results}},ensure_ascii=False)+'\n' for r in rows),encoding='utf-8');return 0
+        filename='direct_result.json' if cfg['experiment']['mode']=='baseline' else 'result.json'
+        exported=[]
+        for row in rows:
+            path=root/'samples'/row['id']/filename
+            result=runner.transport.read_json(path) if path.exists() else {}
+            exported.append({'question_id':row['id'],'text':result.get('answer',''),
+                'model_id':cfg['models']['solve'], 'metadata':{'completed':bool(result),
+                'execution_status':result.get('execution_status','pending_or_error'),
+                'verification_status':result.get('verification_status'), 'answer_origin':result.get('answer_origin')}})
+        # Read authoritative sample files rather than a periodically refreshed
+        # report. Preserve every selected ID, including pending/failed items.
+        args.output.write_text(''.join(json.dumps(item,ensure_ascii=False)+'\n' for item in exported),encoding='utf-8')
+        return 0
     cfg=load_config(args.model_profile,args.route,args.runtime_config);cfg['experiment']['mode']=args.mode
     limit=args.limit or len(runner.transport.read_json(args.source))
     if args.mode=='baseline':return baseline.run(cfg,args.run,args.source,limit,args.max_samples,args.retry_errors,args.command=='prepare')

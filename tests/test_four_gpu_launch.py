@@ -95,6 +95,8 @@ class FourGpuLauncherTests(unittest.TestCase):
         self.assertFalse(launch.phase_complete([status],[130]))
         self.assertFalse(launch.scan_run(root,self.rows[:3],'circle')['all_processed'])
         launch.save(root/'samples/id1/error.json',{'retryable':True})
+        self.assertTrue(launch.scan_run(root,self.rows[:2],'circle')['all_processed'])
+        launch.save(root/'samples/id1/error.json',{'retryable':True,'fatal':True})
         self.assertFalse(launch.scan_run(root,self.rows[:2],'circle')['all_processed'])
 
     def test_plan_refuses_generation_or_core_changes(self):

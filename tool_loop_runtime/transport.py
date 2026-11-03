@@ -224,6 +224,23 @@ def build_api_opener(cfg):
     return urllib.request.build_opener(handler)
 
 
+def context_budget_adjustment(body, error_text):
+    """Use the server's token counts; never truncate input messages/images."""
+    maximum = re.search(r"maximum context length is\s+(\d+)\s+tokens", error_text, re.I)
+    inputs = re.search(r"(\d+)\s+in (?:the )?(?:messages|input)", error_text, re.I)
+    field = "max_completion_tokens" if "max_completion_tokens" in body else "max_tokens"
+    requested = body.get(field)
+    if not maximum or not inputs or type(requested) is not int:
+        return None
+    available = int(maximum.group(1)) - int(inputs.group(1))
+    if available < 1 or available >= requested:
+        return None
+    return dict(body, **{field: available}), {
+        "kind": "context_output_budget", "parameter": field, "previous": requested,
+        "effective": available, "context_tokens": int(maximum.group(1)),
+        "input_tokens": int(inputs.group(1)), "input_unchanged": True}
+
+
 class ApiClient:
     def __init__(self, cfg, key, run_dir):
         self.cfg, self.key, self.run_dir = cfg, key, Path(run_dir)
@@ -248,7 +265,11 @@ class ApiClient:
 
     def call(self, body, sid, stage):
         retries = self.cfg.get("transport_retries", 4)
-        for attempt in range(retries + 1):
+        body = dict(body)
+        adjustments, failures = [], 0
+        # One additional request may correct an explicitly reported context
+        # overflow. Network retry accounting is independent of this correction.
+        for attempt in range(retries + 2):
             self.wait_for_transport(sid, stage)
             started = time.monotonic()
             code, retry, fatal = None, False, False
@@ -295,13 +316,22 @@ class ApiClient:
                 self.ready_at = 0.0
                 raw["_transport"] = {"proxy_mode": self.proxy_mode, "successful_attempt": attempt+1,
                                      "response_headers_seconds": round(headers_seconds, 3),
-                                     "successful_attempt_seconds": round(time.monotonic()-started, 3)}
+                                     "successful_attempt_seconds": round(time.monotonic()-started, 3),
+                                     "request_adjustments": adjustments,
+                                     "effective_max_tokens": body.get("max_completion_tokens", body.get("max_tokens")),
+                                     "effective_request_fingerprint": semantic_request_fingerprint(body)}
                 return raw
             except urllib.error.HTTPError as exc:
                 code = exc.code
                 error = exc.read(1000).decode("utf-8", errors="replace").replace(self.key, "[REDACTED]")
                 retry = code in (408, 429, 500, 502, 503, 504)
-                fatal = code in (400, 401, 402, 403, 404)
+                fatal = code in (401, 402, 403, 404)
+                if not retry:
+                    # A concrete client-error response proves connectivity; do
+                    # not carry an old network-outage timer into later samples.
+                    self.outage_started = None
+                    self.transient_streak = self.cooldowns = 0
+                    self.ready_at = 0.0
                 server_delay = retry_after_seconds(exc.headers.get("Retry-After") if exc.headers else None)
                 message = f"HTTP {code}: {error}"
             except (TimeoutError, OSError, urllib.error.URLError, http.client.HTTPException) as exc:
@@ -316,6 +346,14 @@ class ApiClient:
             with (self.run_dir / "api_attempts.jsonl").open("a", encoding="utf-8") as f:
                 f.write(json.dumps(event, ensure_ascii=False)+"\n")
             log(self.run_dir/"run.log", f"{sid} {stage} {message}")
+            correction = context_budget_adjustment(body, message) if code == 400 and not adjustments and self.cfg.get("context_budget_adaptation", True) else None
+            if correction:
+                body, receipt = correction
+                adjustments.append(receipt)
+                with (self.run_dir/"api_attempts.jsonl").open("a", encoding="utf-8") as file:
+                    file.write(json.dumps({"time": stamp(), "id": sid, "stage": stage, "request_adjustment": receipt})+"\n")
+                log(self.run_dir/"run.log", f"{sid} {stage} adjusted output budget {receipt['previous']} -> {receipt['effective']}; input unchanged")
+                continue
             if retry:
                 now = time.monotonic()
                 if self.outage_started is None:
@@ -323,7 +361,7 @@ class ApiClient:
                 self.transient_streak += 1
                 base = self.cfg.get("retry_base_seconds", 5)
                 cap = self.cfg.get("retry_max_seconds", 60)
-                delay = min(cap, base * (2**attempt)) * random.uniform(0.8, 1.2)
+                delay = min(cap, base * (2**failures)) * random.uniform(0.8, 1.2)
                 if self.transient_streak >= self.cfg.get("cooldown_failure_threshold", 3):
                     cooling = min(self.cfg.get("cooldown_max_seconds", 120),
                                   self.cfg.get("cooldown_seconds", 30) * (2**self.cooldowns))
@@ -334,8 +372,9 @@ class ApiClient:
                 delay = max(delay, server_delay)
                 self.ready_at = max(self.ready_at, now + delay)
                 log(self.run_dir/"run.log", f"{sid} {stage} retry wait {delay:.1f}s; attempt {attempt+1}/{retries+1}")
-            if not retry or attempt >= retries:
+            if not retry or failures >= retries:
                 raise ApiFailure(message, fatal=fatal, retryable=retry, http_status=code)
+            failures += 1
 
 def api_binding(cfg, role):
     if "role_apis" in cfg:

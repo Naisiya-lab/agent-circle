@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-VERSION = "table_programs_v1"
+VERSION = "table_programs_v2"
 
 
 def obj(properties, required):
@@ -12,7 +12,7 @@ def obj(properties, required):
 
 STRING = {"type": "string", "minLength": 1}
 POSITION = {"type": "array", "items": {"type": "integer", "minimum": 1}, "minItems": 2, "maxItems": 2}
-POSITIONS = {"type": "array", "items": POSITION, "minItems": 1, "maxItems": 64}
+POSITIONS = {"type": "array", "items": POSITION, "minItems": 1}
 REGION = obj({"id": STRING, "source_table_id": STRING, "rows": POSITION, "columns": POSITION},
              ["id", "source_table_id", "rows", "columns"])
 
@@ -28,7 +28,7 @@ SPECS = {
         "description": "Extract one or more inclusive, 1-based rectangles from the recognized tables. Expand through intersecting merged cells until all are complete. Preserve blanks, text, spans and source positions. Return an immutable extraction ID; separated regions remain separate.",
         "description_zh": "按原表从1开始的闭区间提取一个或多个矩形，自动扩大至完整保留相交合并单元格。保留空白、文本、跨度和来源坐标；分离区域不拼接。返回不可变的提取结果ID。",
         "parameters": obj({"table_version": STRING,
-                           "regions": {"type": "array", "items": REGION, "minItems": 1, "maxItems": 32}},
+                           "regions": {"type": "array", "items": REGION, "minItems": 1}},
                           ["table_version", "regions"]),
     },
     "inspect_cells": {

@@ -1,24 +1,28 @@
 {
-  "date": "2026-10-24",
+  "date": "2026-11-03",
   "tests": {
-    "command": "python -m unittest discover -s tests -q",
-    "count": 91,
+    "command": "python -X utf8 -m unittest discover -s tests -q",
+    "count": 129,
     "failures": 0,
-    "elapsed_seconds": 5.968,
-    "network": "Only one test uses a fake HTTP service at 127.0.0.1; no external API calls. Windows sandbox blocks localhost sockets, so this offline test command ran with approved local execution."
+    "errors": 0,
+    "elapsed_seconds": 73.862,
+    "latest_log": "validation_final_retry.log (local staging evidence, not deployed)",
+    "previous_attempt": "A prior 129-test pass encountered one Windows PermissionError replacing a temporary attempt file. An unchanged-source full rerun passed all 129 tests; no generic production retry was added for this local event.",
+    "network": "One test uses a fake HTTP service at 127.0.0.1; no external model/API calls. Ran with approved local execution because the Windows sandbox blocks localhost sockets."
   },
   "static_checks": {
     "python_compile": true,
     "json_config_files": 12,
-    "shell_files_lf": 16,
+    "shell_files_lf": true,
     "cli_help": true,
-    "original_source_hashes_unchanged": 25
+    "original_source_hashes_unchanged": 25,
+    "python311_syntax": true,
+    "shell_syntax": "Git Bash -n passed for the updated launcher and environment example; no model process launched."
   },
   "not_tested": [
-    "Real model inference or accuracy",
-    "A800 / vLLM deployment",
-    "Linux Bash runtime or bash -n (Bash not installed locally)",
-    "Paid APIs and closed model availability"
+    "Actual Qwen/vLLM A800 inference and accuracy after this revision",
+    "Remote Linux execution; only Bash syntax and local fake-worker scheduling verified",
+    "Paid APIs"
   ],
   "data_policy": "Dataset will be downloaded separately on the remote machine. No local dataset included or required.",
   "four_gpu_launcher": {
@@ -38,5 +42,40 @@
     ],
     "scope": "Only launch scripts/docs/tests added. Framework, table tools, prompts and inference configs unchanged.",
     "not_tested": "No connection to remote host and no real A800/vLLM execution."
+  },
+  "communication_recovery": {
+    "date": "2026-11-03",
+    "communication_version": "tool_messages_v3",
+    "tool_version": "table_programs_v2",
+    "new_regression_tests": 30,
+    "verified": [
+      "Identical duplicate JSON fields decode without extra model calls; conflicting fields request same-role repair",
+      "Length-truncated readable responses retained in both circle and baseline",
+      "Two format repairs are separate from the single checker rework; checker failure preserves solver answer",
+      "Repeated queries have no stage count cap; query batches and image attachments counted separately",
+      "Unusable HTML is forwarded in structured fields with mapping unavailable, without guessed cells",
+      "Tool arguments are repaired by the caller; transient storage faults retry same operation",
+      "Merge closure and 0/1 based mapping round trips preserved",
+      "Direct coordinates, repeated references and unused conversion requests do not cause sample rejection",
+      "Row/column/region count caps removed; mapping/query work is batched",
+      "HTTP400 is per-request; server-reported context overflow only reduces output budget; old outage state clears",
+      "Failed tool retries refresh caller and dependencies while reusing upstream work; interrupted retries resume without resetting content rework quota",
+      "Exports read saved samples and retain answers, failure metadata and complete denominator"
+    ],
+    "diagnostic_replay": {
+      "archive": "qwen25_7b_error_diagnostics.tar.gz",
+      "saved_response_attempts": 1838,
+      "readable_attempts_now": 1785,
+      "old_terminal_errors_with_saved_response": 113,
+      "old_terminal_error_responses_readable_now": 88,
+      "old_successful_grids": 319,
+      "still_indexable": 319,
+      "same_dimensions_cells_merges": 319,
+      "old_grid_failures_now_indexable": 10,
+      "remaining_unindexable_grid_results": 106,
+      "scope": "Offline interface/tool replay only; not an accuracy evaluation."
+    },
+    "unchanged": "All model profile files and provider generation settings; same-model binding; no new image tool or image resizing.",
+    "remote_validation": "No SSH or remote GPU inference performed. A new run name is required."
   }
 }

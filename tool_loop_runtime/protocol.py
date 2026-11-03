@@ -1,90 +1,49 @@
-"""Typed handoff contracts. Table mechanics are checked separately by table_tool."""
-from .wire_json import DECODER, _object_spans, ProtocolError
+"""Minimal executable message interfaces, without task-correctness judgments."""
 import re
+from .wire_json import DECODER, _object_spans, ProtocolError
 
-VERSION = "tool_messages_v2"
-FORMAT_RETRIES = 1
+VERSION = "tool_messages_v3"
+FORMAT_RETRIES = 2
 
 
 def errors_for(role, obj):
     errors = []
-    def field(obj, key, typ):
-        if not isinstance(obj, dict) or type(obj.get(key)) is not typ:
+    def field(value, key, typ):
+        item = value.get(key) if isinstance(value, dict) else None
+        if type(item) is not typ:
             errors.append(key + " must be " + typ.__name__)
             return None
-        return obj[key]
-    def enum(obj, key, choices):
-        value = field(obj, key, str)
-        if value is not None and value not in choices:
-            errors.append(key + " must be one of " + ", ".join(choices))
-        return value
-    if type(obj) is not dict:
+        return item
+    if not isinstance(obj, dict):
         return ["Return one JSON object"]
     if role == "understand":
-        enum(obj, "schema_version", ("table_html_v3",))
-        enum(obj, "coverage", ("complete", "partial"))
-        tables = field(obj, "tables", list)
-        field(obj, "uncertainties", list)
-        for table in tables or []:
+        for table in field(obj, "tables", list) or []:
             field(table, "id", str)
             field(table, "html", str)
-    elif role == "select":
-        action = enum(obj, "action", ("extract", "inspect"))
+    elif role in ("select", "check"):
+        action = field(obj, "action", str)
         if action == "inspect":
             query_errors(obj, errors)
-        else:
-            regions = field(obj, "regions", list)
-            field(obj, "uncertainties", list)
-            for item in regions or []:
-                field(item, "id", str)
-                field(item, "source_table_id", str)
-                for key in ("rows", "columns"):
-                    pair = field(item, key, list)
+        elif role == "select" and action == "extract":
+            for region in field(obj, "regions", list) or []:
+                field(region, "id", str)
+                field(region, "source_table_id", str)
+                for name in ("rows", "columns"):
+                    pair = field(region, name, list)
                     if pair is not None and (len(pair) != 2 or any(type(v) is not int for v in pair)):
-                        errors.append(key + " must contain [first,last] integers")
+                        errors.append(name + " needs [first,last] integers for extraction")
+        elif role == "check" and action == "judge":
+            field(obj, "status", str)
+            issues = field(obj, "issues", list)
+            if issues is not None and any(not isinstance(i, dict) for i in issues):
+                errors.append("issues must contain objects")
+            # No status/issue consistency rules or required explanatory prose.
+        elif action is not None:
+            errors.append("action must be inspect or " + ("extract" if role == "select" else "judge"))
     elif role == "solve":
-        enum(obj, "status", ("answered", "ambiguous", "insufficient_information"))
         field(obj, "answer", str)
-        field(obj, "review_request", str)
-        if "coordinate_requests" in obj:
-            requests = field(obj, "coordinate_requests", list)
-            if requests is not None and len(requests) > 256:
-                errors.append("At most 256 coordinate references per answer")
-            for request in requests or []:
-                rid = field(request, "id", str)
-                if rid is not None and not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,63}", rid):
-                    errors.append("coordinate request id must be a short identifier")
-                field(request, "subtable_id", str)
-                position = field(request, "position", list)
-                if position is not None and (len(position) != 2 or any(type(v) is not int or v < 1 for v in position)):
-                    errors.append("coordinate position must be [row,column], 1-based integers")
-                enum(request, "component", ("position", "top_left", "bottom_right", "row", "column", "rowspan", "colspan"))
-                enum(request, "format", ("tuple", "json"))
-                base = field(request, "output_base", int)
-                if base is not None and base not in (0, 1):
-                    errors.append("output_base must be 0 or 1")
-    elif role == "check":
-        action = enum(obj, "action", ("judge", "inspect"))
-        if action == "inspect":
-            query_errors(obj, errors)
-            return errors
-        status = enum(obj, "status", ("passed", "needs_revision", "uncertain"))
-        if "return_to" in obj:
-            errors.append("Do not output return_to; the host routes from each issue's source_stage")
-        issues = field(obj, "issues", list)
-        for item in issues or []:
-            for name in ("observation", "conflict", "location"):
-                value = field(item, name, str)
-                if value is not None and not value.strip():
-                    errors.append(name + " must not be empty")
-            enum(item, "source_stage", ("understand", "select", "solve", "unknown"))
-        if status == "passed" and issues:
-            errors.append("passed requires issues=[]")
-        if status == "needs_revision":
-            if not issues:
-                errors.append("needs_revision requires concrete issues")
-            elif any(type(i) is dict and i.get("source_stage") == "unknown" for i in issues):
-                errors.append("Use uncertain when an issue's source_stage is unknown")
+        # Optional coordinate requests are handled by the requested tool, not a
+        # pre-handoff answer gate. Direct coordinates/text are valid messages.
     else:
         raise ValueError("Unknown role " + role)
     return errors
@@ -92,38 +51,36 @@ def errors_for(role, obj):
 
 def query_errors(obj, errors):
     queries = obj.get("queries")
-    if type(queries) is not list or not 1 <= len(queries) <= 32:
-        errors.append("inspect requires 1..32 queries")
+    if not isinstance(queries, list):
+        errors.append("inspect requires a queries list")
         return
     for query in queries:
-        if type(query) is not dict or type(query.get("source_table_id")) is not str:
+        if not isinstance(query, dict) or not isinstance(query.get("source_table_id"), str):
             errors.append("Each query needs source_table_id")
             continue
         positions = query.get("positions")
-        if type(positions) is not list or not 1 <= len(positions) <= 64:
-            errors.append("Each query needs 1..64 positions")
-        elif any(type(p) is not list or len(p) != 2 or any(type(v) is not int or v < 1 for v in p) for p in positions):
-            errors.append("Query positions must be 1-based [row,column] integers")
+        if not isinstance(positions, list) or any(not isinstance(p, list) or len(p) != 2 or any(type(v) is not int for v in p) for p in positions):
+            errors.append("Query positions must contain [row,column] integers")
 
 
 def decode(text, role):
     if not isinstance(text, str) or not text.strip():
         raise ProtocolError(["Empty response content"], role)
     stripped = text.strip()
+    fence = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", stripped, flags=re.S | re.I)
+    if fence:
+        stripped = fence.group(1)
     try:
         value = DECODER.decode(stripped)
-    except ValueError:
-        matches = []
-        for start, end in _object_spans(text):
-            try:
-                candidate = DECODER.decode(text[start:end])
-            except ValueError:
-                continue
-            if not errors_for(role, candidate):
-                matches.append(candidate)
-        if len(matches) != 1:
-            raise ProtocolError(["Expected one unambiguous role JSON object"], role)
-        value = matches[0]
+    except ValueError as original:
+        spans = list(_object_spans(stripped))
+        if len(spans) != 1:
+            raise ProtocolError(["JSON cannot be read: " + str(original)], role) from original
+        start, end = spans[0]
+        try:
+            value = DECODER.decode(stripped[start:end])
+        except ValueError as exc:
+            raise ProtocolError(["JSON cannot be read: " + str(exc)], role) from exc
     errors = errors_for(role, value)
     if errors:
         raise ProtocolError(errors, role)

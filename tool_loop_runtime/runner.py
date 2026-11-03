@@ -11,6 +11,7 @@ import uuid
 
 from .pipeline import transport, run_sample
 from .protocol import VERSION, ProtocolError
+from . import recovery
 
 BASE = transport.BASE
 DEFAULT_SOURCE = BASE / "prepared/mmtab_eval.json"
@@ -57,8 +58,7 @@ def prepare(cfg, name=DEFAULT_RUN, source=DEFAULT_SOURCE, limit=18):
     transport.uses_image(cfg, "select")
     transport.require(cfg.get("loop") == {"max_rework_rounds": 1, "extraction": "rectangle_merge_closure", "coordinate_base": 1},
                       "This version supports exactly one rework round and 1-based merge-closed rectangles")
-    transport.require(cfg.get("communication") == {"version": VERSION, "max_readbacks_per_stage": 1},
-                      "Tool message version and one readback per stage must be explicit")
+    transport.require(cfg.get("communication", {}).get("version") == VERSION, "Communication version mismatch")
     transport.require(type(limit) is int and limit > 0, "--limit must be positive")
     root = run_root(name)
     root.mkdir(parents=True, exist_ok=True)
@@ -84,7 +84,7 @@ def prepare(cfg, name=DEFAULT_RUN, source=DEFAULT_SOURCE, limit=18):
                     "implementation_sha256": {str(p.relative_to(BASE)): transport.digest(p.read_bytes()) for p in code_files()},
                     "note": ("Direct M(image, original question); no agent-role JSON constraint. No automatic scoring." if direct else
                              "Tool-backed U -> region request -> version-bound extraction -> text solver -> coordinate resolution -> visual check. "
-                             "One targeted rework; one optional cell-query readback per select/check stage. No automatic scoring.")}
+                             "One checker content rework; unbounded tool queries and image access; independent format/tool retries. No automatic scoring.")}
         if (root/"config.json").exists():
             transport.require(transport.read_json(root/"config.json") == snapshot,
                               "Frozen code, prompts, config or source changed; use a new --run name")
@@ -99,7 +99,11 @@ def prepare(cfg, name=DEFAULT_RUN, source=DEFAULT_SOURCE, limit=18):
                 dest = root/"code_snapshot"/file.relative_to(BASE)
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(file.read_bytes())
-        report(root)
+        if direct:
+            from .baseline import report as baseline_report
+            baseline_report(root)
+        else:
+            report(root)
         return root, rows, prompts
     finally:
         lock.unlink(missing_ok=True)
@@ -118,14 +122,16 @@ def report(root):
     verification = Counter()
     errors = 0
     tool_calls, tool_seconds = 0, 0
+    independent_counts, execution_statuses = Counter(), Counter()
     for row in rows:
         folder = root/"samples"/row["id"]
         result_path = folder/"result.json"
         result = transport.read_json(result_path) if result_path.exists() else None
         if result:
             results.append(result)
-            verification[result["verification_status"]] += 1
-        elif (folder/"error.json").exists():
+            verification[str(result["verification_status"])] += 1
+            execution_statuses[result.get("execution_status", "legacy")] += 1
+        if (folder/"error.json").exists() or (result and result.get("execution_status") == "communication_failed"):
             errors += 1
         events = folder/"tool_events.jsonl"
         if events.exists():
@@ -134,6 +140,7 @@ def report(root):
                     event = json.loads(line)
                     tool_calls += 1
                     tool_seconds += event["seconds"]
+                    independent_counts["tool_execution_retries"] += event.get("execution_retry", 0) > 0
         details = []
         for path in sorted(folder.glob("r*.json")) if row["id"] in detail_ids else []:
             record = transport.read_json(path)
@@ -144,10 +151,16 @@ def report(root):
                     # Source HTML was sanitized by table_tool. Sandbox is an extra display boundary.
                     frame = '<style>table{border-collapse:collapse}td,th{border:1px solid #999;padding:4px}</style>'+subtable["html"]
                     details.append('<iframe sandbox="" srcdoc="'+escape(frame, quote=True)+'"></iframe>')
+        input_repair_stages = set()
         for path in folder.glob("attempts/*.json"):
             record = transport.read_json(path)
             counter = role_usage.setdefault(record["role"], Counter())
             counter["calls"] += 1
+            if "_tool_repair_" in record.get("stage", ""):
+                input_repair_stages.add(record["stage"])
+            independent_counts["image_accesses"] += record.get("image_count", int(record.get("image_attached", False)))
+            independent_counts["format_repairs"] += record.get("protocol", {}).get("format_retry_index", 0) > 0
+            independent_counts["tool_queries"] += isinstance(record.get("output"), dict) and record["output"].get("action") == "inspect"
             counter["seconds"] += record["seconds"]
             tokens = record["raw_response"].get("usage", {})
             for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
@@ -156,6 +169,7 @@ def report(root):
             reasoning = tokens.get("completion_tokens_details", {}).get("reasoning_tokens")
             if type(reasoning) is int:
                 counter["reasoning_tokens"] += reasoning
+        independent_counts["tool_input_repairs"] += len(input_repair_stages)
         label = result["verification_status"] if result else "error" if (folder/"error.json").exists() else "pending"
         if row["id"] not in detail_ids:
             continue
@@ -170,9 +184,9 @@ def report(root):
     for counter in role_usage.values():
         usage.update(counter)
     summary = {"selected": len(rows), "completed": len(results), "errors": errors,
-               "verification_status": dict(verification), "reworked": sum(r["rework_used"] for r in results),
+               "verification_status": dict(verification), "execution_status": dict(execution_statuses), "reworked": sum(r["rework_used"] for r in results),
                "execution_counts": {"model_calls": usage.get("calls", 0), "tool_calls": tool_calls,
-                                    "rework_rounds": sum(r["counts"]["rework_rounds"] for r in results)},
+                                    "rework_rounds": sum(r["counts"]["rework_rounds"] for r in results), **dict(independent_counts)},
                "tool_seconds": round(tool_seconds, 6),
                "api_usage": dict(usage), "by_role": {k: dict(v) for k, v in role_usage.items()},
                "note": "No automatic accuracy calculation. passed means checker acceptance only. "
@@ -181,7 +195,7 @@ def report(root):
     transport.save_json(root/"results.json", results)
     transport.save_json(root/"summary.json", summary)
     (root/"predictions.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False)+"\n" for r in results), encoding="utf-8")
-    options = "".join('<option value="'+s+'">'+s+'</option>' for s in ("passed", "needs_revision", "uncertain", "tool_failed", "pending", "error"))
+    options = "".join('<option value="'+s+'">'+s+'</option>' for s in ("passed", "needs_revision", "uncertain", "communication_failed", "tool_failed", "pending", "error"))
     page = ('<!doctype html><meta charset="utf-8"><title>Region feedback loop</title>'
             '<style>body{font-family:system-ui;margin:24px;background:#f5f7fa}article{background:white;padding:20px;margin:20px 0}'
             'pre{white-space:pre-wrap;overflow-wrap:anywhere}img{max-width:100%;max-height:650px}iframe{width:100%;height:280px;border:0}'
@@ -199,9 +213,7 @@ def run(cfg, name=DEFAULT_RUN, source=DEFAULT_SOURCE, limit=18, max_samples=0, r
     lock = acquire_lock(root)
     code, session = 0, None
     try:
-        pending = [row for row in rows if not (root/"samples"/row["id"]/"result.json").exists()
-                   and (retry_errors or not (root/"samples"/row["id"]/"error.json").exists()
-                        or transport.saved_error_is_transient(root/"samples"/row["id"]/"error.json"))]
+        pending = [row for row in rows if recovery.needs_run(root/"samples"/row["id"], retry_errors=retry_errors)]
         if max_samples:
             pending = pending[:max_samples]
         keys = transport.load_api_keys(cfg) if pending else {}
@@ -212,37 +224,36 @@ def run(cfg, name=DEFAULT_RUN, source=DEFAULT_SOURCE, limit=18, max_samples=0, r
                    "proxy_mode": transport.proxy_mode(cfg),
                    "selected_ids_this_session": [r["id"] for r in pending]}
         transport.save_json(root/"sessions"/(session["id"]+".json"), session)
-        live_cfg = dict(cfg, _retry_protocol_errors=retry_errors)
+        live_cfg = dict(cfg, _retry_protocol_errors=True)
         print("Understand -> Registered table tools -> Select -> Extract -> Solve -> Resolve coordinates -> Check | workers: 1")
         print("API proxy mode: " + transport.proxy_mode(cfg) + " (client policy; does not override TUN or system routes).")
-        print("At most ONE targeted rework. Details: run.log; failed samples do not stop subsequent samples.")
+        print("At most ONE checker content rework; tool queries/images are unbounded. Format/tool retries are independent and recorded.")
+        saved_ids = {row["id"] for row in rows if (root/"samples"/row["id"]/"result.json").exists()}
         for row in pending:
             folder = root/"samples"/row["id"]
-            for attempt in range(cfg.get("sample_retry_rounds", 2)+1):
-                try:
-                    run_sample(row, folder, live_cfg, prompts, client, root/"run.log")
-                    (folder/"error.json").unlink(missing_ok=True)
-                    progress.completed += 1
-                    break
-                except (ValueError, transport.ApiFailure, KeyError, TypeError) as exc:
-                    fatal = isinstance(exc, transport.ApiFailure) and exc.fatal
-                    transient = isinstance(exc, transport.ApiFailure) and exc.retryable and not fatal
-                    error = {"id": row["id"], "time": transport.stamp(), "message": str(exc), "type": type(exc).__name__,
-                             "retryable": transient, "fatal": fatal, "sample_attempt": attempt+1}
-                    if isinstance(exc, ProtocolError):
-                        error.update(role=exc.role, stage=exc.stage, protocol_errors=exc.errors)
-                    transport.save_json(folder/"error.json", error)
-                    transport.log(root/"run.log", row["id"]+" ERROR "+str(exc))
-                    if fatal:
-                        code = 1
-                        raise
-                    if transient and attempt < cfg.get("sample_retry_rounds", 2):
-                        transport.wait_with_progress(cfg.get("sample_retry_delay_seconds", 30), progress.show,
-                                                     row["id"], "sample retry", "saved stages retained")
-                        continue
+            recovery.begin_retry(folder)
+            try:
+                sample_cfg = recovery.prepare_tool_retry(folder, live_cfg, retry_errors)
+                result = run_sample(row, folder, sample_cfg, prompts, client, root/"run.log")
+                recovery.finish_tool_retry(folder)
+                if result.get("communication_error"):
+                    recovery.record_error(folder, result["communication_error"])
                     progress.errors += 1
                     code = 1
-                    break
+                else:
+                    recovery.clear_error(folder)
+                saved_ids.add(row["id"])
+                progress.completed = len(saved_ids)
+            except (ValueError, transport.ApiFailure, KeyError, TypeError) as exc:
+                fatal = isinstance(exc, transport.ApiFailure) and exc.fatal
+                error = {"id": row["id"], "time": transport.stamp(), "message": str(exc), "type": type(exc).__name__,
+                         "retryable": True, "fatal": fatal, "category": "service_failure" if fatal else "execution_error"}
+                recovery.record_error(folder, error)
+                transport.log(root/"run.log", row["id"]+" ERROR "+str(exc))
+                progress.errors += 1
+                code = 1
+                if fatal:
+                    raise
             progress.finished += 1
             progress.show()
             if progress.finished % cfg.get("report_every_samples", 1) == 0 or progress.finished == len(pending):

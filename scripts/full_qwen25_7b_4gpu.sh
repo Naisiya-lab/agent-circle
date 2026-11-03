@@ -14,4 +14,4 @@ exec "$PYTHON_BIN" "$PROJECT_ROOT/scripts/full_qwen25_7b_4gpu.py" "${1:-run}" \
   --experiment "$EXPERIMENT_NAME" --model-name "$SERVED_MODEL_NAME" \
   --gpus "$GPU_IDS" --first-port "$FIRST_PORT" --context "$MAX_MODEL_LEN" \
   --max-num-seqs "$MAX_NUM_SEQS" --memory-utilization "$GPU_MEMORY_UTILIZATION" \
-  --start-timeout "$SERVER_START_TIMEOUT"
+  --start-timeout "$SERVER_START_TIMEOUT" "${@:2}"

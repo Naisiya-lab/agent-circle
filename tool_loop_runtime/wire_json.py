@@ -1,4 +1,4 @@
-"""Strict JSON parsing shared by the local role contracts."""
+"""JSON message reading: collapse equal duplicates, never choose conflicting values."""
 
 import json
 
@@ -8,18 +8,8 @@ class ProtocolError(ValueError):
         self.role, self.stage = role, stage
         super().__init__("; ".join(self.errors))
 
-def _pairs(items):
-    result = {}
-    for key, value in items:
-        if key in result:
-            raise ValueError("duplicate JSON key: " + key)
-        result[key] = value
-    return result
+from table_tools.strict_json import DECODER
 
-def _constant(value):
-    raise ValueError("non-standard JSON constant: " + value)
-
-DECODER = json.JSONDecoder(object_pairs_hook=_pairs, parse_constant=_constant)
 
 def _object_spans(text):
     """Skip complete outer objects/arrays, including malformed JSON; never fish inside them."""

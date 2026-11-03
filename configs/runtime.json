@@ -4,9 +4,12 @@
   "report_detail_limit": 100,
   "timeout_seconds": 300,
   "transport_retries": 4,
-  "max_tokens": {"understand": 8192, "select": 4096, "solve": 4096, "check": 4096},
-  "sample_retry_rounds": 2,
-  "sample_retry_delay_seconds": 30,
+  "max_tokens": {
+    "understand": 8192,
+    "select": 4096,
+    "solve": 4096,
+    "check": 4096
+  },
   "retry_base_seconds": 5,
   "retry_max_seconds": 60,
   "cooldown_failure_threshold": 3,
@@ -14,7 +17,22 @@
   "cooldown_max_seconds": 120,
   "outage_timeout_seconds": 900,
   "request_deadline_seconds": 1200,
-  "loop": {"max_rework_rounds": 1, "extraction": "rectangle_merge_closure", "coordinate_base": 1},
-  "communication": {"version": "tool_messages_v2", "max_readbacks_per_stage": 1},
-  "network": {"proxy_mode": "direct"}
+  "loop": {
+    "max_rework_rounds": 1,
+    "extraction": "rectangle_merge_closure",
+    "coordinate_base": 1
+  },
+  "communication": {
+    "version": "tool_messages_v3",
+    "format_retries": 2
+  },
+  "network": {
+    "proxy_mode": "direct"
+  },
+  "tools": {
+    "execution_retries": 2,
+    "input_retries": 2,
+    "position_batch_size": 64
+  },
+  "context_budget_adaptation": true
 }

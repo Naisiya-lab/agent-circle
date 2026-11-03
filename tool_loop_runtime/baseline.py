@@ -6,7 +6,7 @@ import mimetypes
 from pathlib import Path
 import time
 import uuid
-from . import transport, runner
+from . import transport, runner, recovery
 from .providers import build_request
 
 
@@ -26,9 +26,7 @@ def run(cfg, name, source, limit, max_samples=0, retry_errors=False, prepare_onl
     lock = runner.acquire_lock(root)
     code = 0
     try:
-        pending = [r for r in rows if not (root/'samples'/r['id']/'direct_result.json').exists()
-                   and (retry_errors or not (root/'samples'/r['id']/'error.json').exists()
-                        or transport.saved_error_is_transient(root/'samples'/r['id']/'error.json'))]
+        pending = [r for r in rows if recovery.needs_run(root/'samples'/r['id'], 'direct_result.json', retry_errors)]
         if max_samples: pending = pending[:max_samples]
         endpoint, env = transport.api_binding(cfg, 'solve')
         import os, getpass, sys
@@ -45,29 +43,34 @@ def run(cfg, name, source, limit, max_samples=0, retry_errors=False, prepare_onl
         started = time.monotonic()
         for row in pending:
             folder = root/'samples'/row['id'];folder.mkdir(parents=True,exist_ok=True)
+            recovery.begin_retry(folder, 'direct_result.json')
             try:
                 body = body_for(row,cfg); then = time.monotonic()
                 fingerprint=transport.semantic_request_fingerprint(body)
                 saved=folder/'direct_response.json'
-                if saved.exists() and not retry_errors:
+                if saved.exists() and not (folder/'error.json').exists() and not retry_errors:
                     record=transport.read_json(saved)
-                    transport.require(record['request_fingerprint']==fingerprint,'Saved baseline request changed')
+                    transport.require(record.get('base_request_fingerprint',record['request_fingerprint'])==fingerprint,'Saved baseline request changed')
                     raw=record['raw_response']
                 else:
                     raw = client.call(body,row['id'],'direct',role='solve')
-                    record = {'model':cfg['models']['solve'],'image_sha256':row['image_sha256'],
-                              'request_fingerprint':fingerprint,
+                    record = {'role':'solve','stage':'direct','image_attached':True,'image_count':1,'model':cfg['models']['solve'],'image_sha256':row['image_sha256'],
+                              'base_request_fingerprint':fingerprint,
+                              'request_fingerprint':raw.get('_transport',{}).get('effective_request_fingerprint',fingerprint),
+                              'requested_max_tokens':body.get('max_completion_tokens',body.get('max_tokens')),
+                              'effective_max_tokens':raw.get('_transport',{}).get('effective_max_tokens',body.get('max_completion_tokens',body.get('max_tokens'))),
                               'seconds':round(time.monotonic()-then,3),'raw_response':raw}
+                    transport.save_json(folder/'attempts'/('direct_'+uuid.uuid4().hex+'.json'),record)
                     transport.save_json(saved,record)
                 choice = raw['choices'][0]; content=choice['message'].get('content')
-                transport.require(choice.get('finish_reason') in (None,'stop') and isinstance(content,str) and bool(content.strip()), 'Incomplete or empty baseline response')
-                transport.save_json(folder/'direct_result.json',{'id':row['id'],'answer':content,'status':'answered',
+                transport.require(isinstance(content,str), 'No text returned by baseline service')
+                transport.save_json(folder/'direct_result.json',{'id':row['id'],'answer':content,'status':'answered','execution_status':'completed','finish_reason':choice.get('finish_reason'),
                                     'model_calls':1,'seconds_this_session':record['seconds'],'completed_at':transport.stamp()})
-                (folder/'error.json').unlink(missing_ok=True);progress.completed+=1
+                recovery.clear_error(folder);progress.completed+=1
             except (ValueError,transport.ApiFailure,KeyError,TypeError) as exc:
                 fatal=isinstance(exc,transport.ApiFailure) and exc.fatal
-                transport.save_json(folder/'error.json',{'id':row['id'],'message':str(exc),'type':type(exc).__name__,
-                    'retryable':isinstance(exc,transport.ApiFailure) and exc.retryable,'fatal':fatal})
+                recovery.record_error(folder,{'id':row['id'],'message':str(exc),'type':type(exc).__name__,
+                    'retryable':True,'fatal':fatal,'category':'service_failure' if fatal else 'communication_failed'})
                 code=1;progress.errors+=1
                 if fatal:raise
             progress.finished+=1;progress.show()

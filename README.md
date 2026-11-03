@@ -1,6 +1,6 @@
 # agent-circle
 
-整理日期：2026-10-24。保留当前四角色工具循环的最终实现，支持**同一基础模型M直接回答**与**同一M承担全部角色的循环**。旧`loop_agent`、`muti_agent`和所有历史结果均保留。
+更新日期：2026-11-03。保留当前四角色工具循环的最终实现，支持**同一基础模型M直接回答**与**同一M承担全部角色的循环**。旧`loop_agent`、`muti_agent`和所有历史结果均保留。
 
 - [模型与论文调研、4点提升的解释](research/model_survey_20261024.md)
 - [框架与通信](docs/FRAMEWORK.md)
@@ -73,7 +73,7 @@ MANIFEST="$PWD/prepared/mmtab_eval_no_t2t.json" bash scripts/prepare_eval.sh --e
 
 ## 保存与恢复
 
-每次运行固定配置、源码、提示词、清单及图像哈希。同名运行不允许换配置续跑；格式失败重试一次，内容返工最多一轮，网络重试独立计数。普通样本失败继续后续样本，鉴权等致命错误停止。
+每次运行固定配置、源码、提示词、清单及图像哈希。同名运行不允许换配置续跑；格式失败由原角色最多额外修复两次；工具查询/图片访问不设次数上限；只由核查发起的内容返工最多一轮。工具重试与格式修复独立计数。HTTP 400不直接停止分片；上下文超限按服务计数调整输出预算，输入不变。账户/全局服务故障保留现场并报告。
 
 ```bash
 bash scripts/run.sh qwen25_vl_7b circle --retry-errors
@@ -81,4 +81,24 @@ python3 agent_circle.py report --run 你的运行名
 python3 agent_circle.py export --run 你的运行名 --output predictions.jsonl
 ```
 
+通信失败下次默认重试；`--retry-errors`额外重试工具受限结果，并复用已完成阶段。旧错误与答案写入`recovery_history.jsonl`；新版必须用新的RUN_NAME，不覆盖旧实验。详见[框架与通信](docs/FRAMEWORK.md)。
+
 导出采用官方LLaVA式`question_id/text/model_id`；未完成样本导出空答案并保留分母，不伪造正确性。当前未运行新的模型实验，`passed`只表示核查模型接受，不是评测得分。
+
+## 2026-11-03通信恢复修订
+
+相同值的重复JSON字段不再导致失败；冲突值交原角色修复。兼容可读取的截断响应与HTML标签省略。工具仍负责可靠的合并格提取与坐标映射，不能建网格时显式提供原HTML而不补造坐标。核查解析失败保留已有求解答案，状态另记，不能当作核查通过。
+
+新版四卡默认实验名为`qwen25_7b_full4gpu_v2`；如本地env文件仍指定v1，运行时显式设置新名。已有模型服务可继续复用，无需为客户端更新重启模型。
+
+```bash
+EXPERIMENT_NAME=qwen25_7b_full4gpu_v2 bash scripts/full_qwen25_7b_4gpu.sh run
+# 本轮完成后，可选择补跑通信/工具失败项；正常完成回答不重跑
+EXPERIMENT_NAME=qwen25_7b_full4gpu_v2 bash scripts/full_qwen25_7b_4gpu.sh run --retry-errors
+```
+
+仅回放历史诊断包的接口和工具行为（不调用模型、不计算准确率）：
+
+```bash
+python scripts/replay_diagnostics.py --archive /path/to/diagnostics.tar.gz --output /path/to/replay.json
+```
