@@ -7,7 +7,7 @@ from . import transport
 def result_is_retryable(result, include_tool_failures=False):
     if result.get("execution_status") == "communication_failed":
         return True
-    return include_tool_failures and (result.get("execution_status") == "tool_limited" or result.get("verification_status") == "tool_failed")
+    return include_tool_failures and (result.get("execution_status") in ("tool_limited", "model_fallback") or result.get("verification_status") == "tool_failed")
 
 
 def needs_run(folder, result_name="result.json", retry_errors=False):

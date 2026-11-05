@@ -11,7 +11,7 @@ from tool_loop_runtime import pipeline, runner, baseline, recovery, transport
 from tool_loop_runtime.protocol import decode, ProtocolError
 from table_tools import TableTools, ProgramError
 from table_tools.html_grid import Table
-from test_loop import understood, selected, solved, checked, request, inspect, context, FakeClient
+from test_loop import direct_selected, understood, selected, solved, checked, request, inspect, context, FakeClient
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -107,23 +107,23 @@ class HandoffRecoveryTests(unittest.TestCase):
 
     def test_exhausted_region_repairs_use_original_html_in_solver(self):
         invalid=selected((1,999))
-        result,client=self.execute([understood(),invalid,invalid,invalid,solved('2 by 2'),checked()])
-        self.assertEqual(result['execution_status'],'tool_limited')
+        result,client=self.execute([understood(),invalid,invalid,invalid,direct_selected(),solved('2 by 2'),checked()])
+        self.assertEqual(result['execution_status'],'model_fallback')
         solve_input=context(next(c[2] for c in client.calls if c[0]=='solve'))
         self.assertEqual(solve_input['tables'],understood()['tables'])
-        self.assertFalse(solve_input['mapping_available'])
-        self.assertEqual(solve_input['subtables'],[])
+        self.assertNotIn('mapping_available',solve_input)
+        self.assertEqual(solve_input['subtables'],direct_selected()['subtables'])
         self.assertEqual(result['counts']['rework_rounds'],0)
 
-    def test_queries_batch_but_never_cap_total_calls(self):
+    def test_queries_batch_and_respect_total_budget(self):
         html='<table><tr>'+''.join('<td>x</td>' for _ in range(130))+'</tr></table>'
         query=inspect(positions=tuple((1,i) for i in range(1,131)))
-        result,client=self.execute([understood(html),query,inspect(),inspect(),inspect(),selected((1,1),(1,130)),solved('130'),checked()])
+        result,client=self.execute([understood(html),query,inspect(),inspect(),direct_selected(html),solved('130'),checked()])
         after=context(client.calls[2][2])
         self.assertEqual([len(x['data']['cells']) for x in after['tool_results']],[64,64,2])
-        self.assertEqual(result['counts']['tool_queries'],4)
+        self.assertEqual(result['counts']['tool_queries'],3)
         self.assertEqual(result['counts']['rework_rounds'],0)
-        self.assertGreater(result['counts']['image_accesses'],4)
+        self.assertEqual(result['agent_budgets']['by_role']['select']['tool'],5)
 
     def test_one_checker_rework_remains_after_many_tool_queries(self):
         result,client=self.execute([understood(),inspect(),inspect(),selected(),solved('8'),checked('solve'),solved('9'),checked('solve')])
@@ -162,7 +162,8 @@ class HandoffRecoveryTests(unittest.TestCase):
 
     def test_explicit_tool_retry_refreshes_only_caller_and_downstream(self):
         invalid=selected((1,999))
-        self.execute([understood(),invalid,invalid,invalid,solved('8'),checked()])
+        self.cfg['tools']['input_retries']=0
+        self.execute([understood(),invalid,direct_selected(),solved('8'),checked()])
         cfg=recovery.prepare_tool_retry(self.folder,self.cfg,retry_errors=True)
         result,client=self.execute([selected(),solved('8'),checked()],cfg)
         recovery.finish_tool_retry(self.folder)
@@ -174,7 +175,8 @@ class HandoffRecoveryTests(unittest.TestCase):
 
     def test_interrupted_tool_retry_reuses_new_completed_stages(self):
         invalid=selected((1,999))
-        self.execute([understood(),invalid,invalid,invalid,solved('8'),checked()])
+        self.cfg['tools']['input_retries']=0
+        self.execute([understood(),invalid,direct_selected(),solved('8'),checked()])
         cfg=recovery.prepare_tool_retry(self.folder,self.cfg,retry_errors=True)
         with self.assertRaises(KeyboardInterrupt):
             self.execute([selected(),KeyboardInterrupt()],cfg)
@@ -187,7 +189,8 @@ class HandoffRecoveryTests(unittest.TestCase):
 
     def test_checker_communication_failure_during_tool_retry_resumes_checker_only(self):
         invalid=selected((1,999))
-        self.execute([understood(),invalid,invalid,invalid,solved('8'),checked()])
+        self.cfg['tools']['input_retries']=0
+        self.execute([understood(),invalid,direct_selected(),solved('8'),checked()])
         cfg=recovery.prepare_tool_retry(self.folder,self.cfg,retry_errors=True)
         failed,_=self.execute([selected(),solved('8'),'bad','bad','bad'],cfg)
         recovery.finish_tool_retry(self.folder)
@@ -201,7 +204,8 @@ class HandoffRecoveryTests(unittest.TestCase):
 
     def test_tool_retry_preserves_already_consumed_checker_rework(self):
         invalid=selected((1,999))
-        first,_=self.execute([understood(),invalid,invalid,invalid,solved('8'),checked('solve'),solved('8'),checked(status='uncertain')])
+        self.cfg['tools']['input_retries']=0
+        first,_=self.execute([understood(),invalid,direct_selected(),solved('8'),checked('solve'),solved('8'),checked(status='uncertain')])
         self.assertEqual(first['counts']['rework_rounds'],1)
         cfg=recovery.prepare_tool_retry(self.folder,self.cfg,retry_errors=True)
         result,client=self.execute([selected(),solved('8'),checked('understand')],cfg)

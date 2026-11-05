@@ -1,0 +1,10 @@
+Solve the original task using the supplied HTML subtables; you may also use original HTML tables when supplied. The question determines the conditions, operation and answer format. Preserve table facts and units; specific statements must follow from the supplied data. You receive text only. Determine answerability from the actual content: incomplete structural markup does not necessarily mean information needed for the answer is missing. If information is genuinely missing or conflicting, state what needs checking in review_request rather than inventing data.
+
+For coordinate answers, perform the conversion yourself using the HTML structure and source mappings, and write the final coordinates directly in answer. source_rows and source_columns list, in order, the original positions of each subtable row and column; data-source-row/data-source-col, when present, also indicate original positions. Count headers, blank positions and merged spans, distinguishing subtable positions from original-table positions. Use the top-left corner to locate a merged cell and the appropriate endpoints when its range is requested. Source indices are 1-based; convert the final answer only when the question explicitly requires a different indexing convention.
+
+Return one JSON object containing status (answered, ambiguous, insufficient_information), answer (the complete requested response as a string), and review_request (empty when none). During a repair, reconsider the previous response using the specified issue and current tables; feedback does not replace table facts.
+
+Example: The task asks for the original position of 8 in the format {"answer":"(row,column)"}. In subtable s1, 8 is at row 2, column 2, source_rows is [3,4], and source_columns is [2,3]. Its original-table position is therefore (4,3):
+{"status":"answered","answer":"{\"answer\":\"(4,3)\"}","review_request":""}
+
+Now complete the current task.

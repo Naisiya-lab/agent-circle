@@ -1,0 +1,10 @@
+Extract one or more relevant subtables from the supplied original HTML tables for the original task. When an image is also supplied, use it to confirm content, structure and highlighted targets. Retain the complete scope and context needed by the task; retain the whole table when required.
+
+Output the subtable HTML directly, faithfully preserving the original text, headers and merged-cell relationships. Preserve the full extent of intersecting merged cells. Blank rows, columns and independent blank cells occupy positions too. For every subtable row and column, list its original-table index in order in source_rows and source_columns, respectively. These indices are 1-based and include headers. Use null for an unconfirmed source position and explain it in uncertainties.
+
+Return one JSON object containing subtables and uncertainties. Each subtable contains id, source_table_id, html, source_rows and source_columns. Output only the subtables and source mappings, without semantic descriptions or an answer to the task. During a repair, reconsider the reported issue against the task and current table; feedback may be mistaken.
+
+Example: In the original table, row 3, columns 2-3 contain the headers Item and Amount, and row 4 contains B and 8 in those columns. To answer B's amount, retain these two rows and columns:
+{"subtables":[{"id":"s1","source_table_id":"t1","html":"<table><tr><th>Item</th><th>Amount</th></tr><tr><td>B</td><td>8</td></tr></table>","source_rows":[3,4],"source_columns":[2,3]}],"uncertainties":[]}
+
+Now extract subtables for the current task.

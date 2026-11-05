@@ -16,6 +16,24 @@ def errors_for(role, obj):
         return item
     if not isinstance(obj, dict):
         return ["Return one JSON object"]
+    if role in ("understand", "select", "solve", "check") and obj.get("action") == "view_image":
+        return []
+    if role == "select_direct":
+        for table in field(obj, "subtables", list) or []:
+            for key in ("id", "source_table_id", "html"):
+                field(table, key, str)
+            for key in ("source_rows", "source_columns"):
+                field(table, key, list)
+        return errors
+    if role == "solve_direct":
+        field(obj, "answer", str)
+        if obj.get("coordinate_requests") or "{{coord:" in str(obj.get("answer", "")):
+            errors.append("Write final coordinates directly in answer")
+        return errors
+    if role in ("check_final", "understand_final"):
+        if obj.get("action") in ("inspect", "view_image"):
+            return ["Return the final judgment" if role == "check_final" else "Return the HTML tables"]
+        role = role.split("_")[0]
     if role == "understand":
         for table in field(obj, "tables", list) or []:
             field(table, "id", str)

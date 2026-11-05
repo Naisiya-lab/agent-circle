@@ -13,9 +13,9 @@ from .protocol import VERSION, FORMAT_RETRIES, ProtocolError, decode, errors_for
 from .providers import profile, build_request
 
 
-def payload(role, row, context, cfg, prompt):
+def payload(role, row, context, cfg, prompt, attach_image=None):
     content = json.dumps(context, ensure_ascii=False)
-    image_attached = transport.uses_image(cfg, role)
+    image_attached = transport.uses_image(cfg, role) if attach_image is None else attach_image
     if image_attached:
         image = Path(row["image"])
         data = image.read_bytes()
@@ -29,7 +29,7 @@ def payload(role, row, context, cfg, prompt):
     body = {"model": cfg["models"][role], "stream": cfg.get("stream", True),
             "max_tokens": cfg["max_tokens"][role],
             "messages": [{"role": "system", "content": prompt}, {"role": "user", "content": content}]}
-    if role in ("select", "solve") and not image_attached:
+    if role in ("select", "solve") and not transport.uses_image(cfg, role):
         body.update(transport.text_api(cfg, role)["request_options"])
         if body["stream"]:
             body["stream_options"] = {"include_usage": True}
@@ -47,6 +47,10 @@ def _format_request(body, role, prompt, previous_text, errors):
         "select": "action: extract, regions: [{id, source_table_id, rows: [first,last], columns: [first,last]}]; or action: inspect, queries: [{source_table_id, positions}]",
         "solve": "answer: string; optional coordinate_requests for program conversion",
         "check": "action: judge, status: string, issues: list; or action: inspect, queries: list",
+        "select_direct": "subtables: [{id, source_table_id, html, source_rows: list, source_columns: list}]; uncertainties: list",
+        "solve_direct": "answer: string containing the final response and literal final coordinates; status and review_request",
+        "check_final": "action: judge, status: string, issues: list",
+        "understand_final": "tables: [{id: string, html: string}]",
     }
     repair = {"previous_output": previous_text, "interface_errors": errors,
               "required_interface": fields[role],
@@ -55,13 +59,14 @@ def _format_request(body, role, prompt, previous_text, errors):
                                 {"role": "user", "content": json.dumps(repair, ensure_ascii=False)}])
 
 
-def invoke(role, stage, row, context, cfg, prompt, client, sample_dir, log_path):
+def invoke(role, stage, row, context, cfg, prompt, client, sample_dir, log_path, *, interface=None, attach_image=None):
+    interface = interface or role
     path = sample_dir / (stage + ".json")
     retry_plan = cfg.get("_tool_retry_plan")
     if retry_plan and role==retry_plan["owner"] and stage.startswith(f"r{retry_plan.get('content_reworks_used', 0):02d}_") and "_tool_repair_" not in stage and "_after_read_" not in stage:
         context=dict(context,tool_retry_context={"id":retry_plan["id"],"previous_output":retry_plan["previous_output"],
             "tool_errors":retry_plan["tool_errors"],"previous_table_version":retry_plan["previous_table_version"]})
-    body = payload(role, row, context, cfg, prompt)
+    body = payload(role, row, context, cfg, prompt, attach_image)
     fingerprint = transport.semantic_request_fingerprint(body)
     record = transport.read_json(path) if path.exists() else None
     shared = cfg.get("initial_understanding_cache")
@@ -110,7 +115,7 @@ def invoke(role, stage, row, context, cfg, prompt, client, sample_dir, log_path)
             previous = record
             repair_index = 0 if previous is None else previous["protocol"]["format_retry_index"] + 1
             request = body if previous is None else _format_request(
-                body, role, prompt,
+                body, interface, prompt,
                 previous["raw_response"]["choices"][0]["message"].get("content") or "",
                 previous["protocol"]["errors"])
             transport.log(log_path, f"{row['id']} {stage} requesting format_retry={repair_index}")
@@ -129,7 +134,7 @@ def invoke(role, stage, row, context, cfg, prompt, client, sample_dir, log_path)
                       "tool_retry_id": retry_plan["id"] if retry_plan else None,
                       "base_request_fingerprint": fingerprint,
                       "request_fingerprint": raw.get("_transport", {}).get("effective_request_fingerprint", transport.semantic_request_fingerprint(request)), "input": context,
-                      "image_attached": bool(images), "image_count": images,
+                      "image_attached": bool(images), "image_count": images, "interface": interface,
                       "model": cfg["models"][role], "endpoint": transport.api_binding(cfg, role)[0],
                       "request_options": profile(cfg, role).get("request_options", {}) if profile(cfg, role) is not None else {},
                       "requested_max_tokens": request.get("max_completion_tokens", request.get("max_tokens")),
@@ -146,7 +151,7 @@ def invoke(role, stage, row, context, cfg, prompt, client, sample_dir, log_path)
             choice = record["raw_response"]["choices"][0]
             # A length-truncated response is accepted when its interface can be
             # read. Preserve finish_reason; do not equate truncation with failure.
-            output = decode(choice["message"].get("content"), role)
+            output = decode(choice["message"].get("content"), interface)
         except ProtocolError as exc:
             record["protocol"]["errors"] = exc.errors
             exhausted = record["protocol"]["format_retry_index"] >= max_repairs

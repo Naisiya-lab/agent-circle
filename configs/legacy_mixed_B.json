@@ -78,5 +78,9 @@
     "input_retries": 2,
     "position_batch_size": 64
   },
-  "context_budget_adaptation": true
+  "context_budget_adaptation": true,
+  "agent_limits": {
+    "tool_calls": 5,
+    "image_requests": 5
+  }
 }

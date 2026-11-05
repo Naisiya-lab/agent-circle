@@ -22,6 +22,11 @@ def selected(rows=(1, 2), columns=(1, 2)):
     return {"action": "extract", "regions": [{"id": "s1", "source_table_id": "t1", "rows": list(rows), "columns": list(columns)}], "uncertainties": []}
 
 
+def direct_selected(html=None):
+    return {"subtables": [{"id": "s1", "source_table_id": "t1", "html": html or understood()["tables"][0]["html"],
+            "source_rows": [1,2], "source_columns": [1,2]}], "uncertainties": []}
+
+
 def solved(answer="8", requests=None):
     value = {"status": "answered", "answer": answer, "review_request": ""}
     if requests is not None:
@@ -308,12 +313,13 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(result['counts']['tool_input_repairs'],1)
 
 
-    def test_bad_coordinates_reach_checker_with_explicit_tool_errors(self):
+    def test_bad_coordinates_switch_to_model_conversion_before_checker(self):
         invalid = solved('{{coord:p1}}', [request(position=(999,1))])
-        result, client = self.execute([understood(),selected(),invalid,invalid,invalid,checked(status='uncertain')])
-        self.assertEqual(result['answer'],'{{coord:p1}}')
-        self.assertEqual(result['execution_status'],'tool_limited')
-        self.assertIn('coordinate_tool_errors',context(client.calls[-1][2]))
+        result, client = self.execute([understood(),selected(),invalid,invalid,invalid,solved('(2,2)'),checked(status='uncertain')])
+        self.assertEqual(result['answer'],'(2,2)')
+        self.assertEqual(result['execution_status'],'model_fallback')
+        self.assertNotIn('coordinate_tool_errors',context(client.calls[-1][2]))
+        self.assertEqual(result['agent_budgets']['by_role']['solve']['tool'],3)
         self.assertEqual(result['counts']['rework_rounds'],0)
 
 
@@ -328,12 +334,12 @@ class IntegrationTests(unittest.TestCase):
 
     def test_invalid_grid_forwards_html_and_only_checker_can_request_understanding(self):
         bad = understood('<table><tr><td>A</td><td>B</td></tr><tr><td>C</td></tr></table>')
-        result, client = self.execute([bad,selected(),solved('three cells'),checked('understand'),understood(),selected(),solved(),checked()])
+        result, client = self.execute([bad,direct_selected(bad['tables'][0]['html']),solved('three cells'),checked('understand'),understood(),selected(),solved(),checked()])
         self.assertEqual([x[0] for x in client.calls], ['understand','select','solve','check','understand','select','solve','check'])
         first_solver=context(client.calls[2][2])
         self.assertEqual(first_solver['tables'],bad['tables'])
-        self.assertEqual(first_solver['subtables'],[])
-        self.assertFalse(first_solver['mapping_available'])
+        self.assertEqual(first_solver['subtables'][0]['html'],bad['tables'][0]['html'])
+        self.assertNotIn('tool_results',first_solver)
         self.assertEqual(result['counts']['rework_rounds'],1)
         self.assertEqual(result['execution_status'],'completed')
 
@@ -345,10 +351,10 @@ class IntegrationTests(unittest.TestCase):
 
     def test_host_storage_failure_retries_tool_then_forwards_error(self):
         with patch('tool_loop_runtime.communication.TableTools',side_effect=ProgramError('STATE_IO_ERROR','storage failed',recovery='fix_host_storage')) as tool:
-            result,client=self.execute([understood(),selected(),solved('8'),checked(status='uncertain')])
+            result,client=self.execute([understood(),direct_selected(),solved('8'),checked(status='uncertain')])
         self.assertEqual(tool.call_count,3)
         self.assertEqual(len(client.calls),4)
-        self.assertEqual(result['execution_status'],'tool_limited')
+        self.assertEqual(result['execution_status'],'model_fallback')
         self.assertEqual(result['counts']['rework_rounds'],0)
         self.assertEqual(result['counts']['tool_execution_retries'],2)
 

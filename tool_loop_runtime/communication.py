@@ -24,9 +24,11 @@ def failure(code, message, **details):
 
 class ToolSession:
     """Execute tools without turning execution errors into content-routing decisions."""
-    def __init__(self, row, understanding, sample_dir, prefix, cfg=None):
+    def __init__(self, row, understanding, sample_dir, prefix, cfg=None, budgets=None):
         self.sample_dir, self.prefix = Path(sample_dir), prefix
         self.cfg = cfg or {}
+        self.budgets = budgets
+        self.operation_scope = ""
         self.service = None
         self.understanding = understanding
         self.registration = None
@@ -53,13 +55,29 @@ class ToolSession:
         response = self.registration
         for attempt in range(self.cfg.get("tools", {}).get("execution_retries", 2)+1):
             started = time.monotonic()
+            args = dict(arguments, table_version=self.service.table_version) if self.service else arguments
+            token = None
+            if self.budgets is not None:
+                key = digest_value({"stage": stage, "scope": self.operation_scope, "tool": name,
+                    "arguments": args, "registration": self.registration, "attempt": attempt,
+                    "retry_plan": self.cfg.get("_tool_retry_plan", {}).get("id")})
+                token = self.budgets.take(role, "tool", key)
+                if token is None:
+                    response = failure("TOOL_BUDGET_EXHAUSTED", "This role has used its per-sample tool allowance")
+                    break
+                cached = self.budgets.receipt(token)
+                if cached is not None:
+                    response = cached
+                    if response["ok"] or response["error"]["code"] not in TRANSIENT_TOOL_ERRORS:
+                        break
+                    continue
             if self.service is None:
-                args = arguments
                 response = self.registration
             else:
                 # Sample/table identity comes from the host's active session.
-                args = dict(arguments, table_version=self.service.table_version)
                 response = self.service.call(role, name, args)
+            if token is not None:
+                self.budgets.complete(token, response)
             self.event(role, name, args, response, started, attempt)
             if response["ok"] or response["error"]["code"] not in TRANSIENT_TOOL_ERRORS or self.service is None:
                 break
@@ -109,7 +127,7 @@ def route_checker(judgment):
 
 def wire_subtables(extraction):
     fields = ("id", "source_table_id", "table_version", "source_rows", "source_columns", "html")
-    return [{key: table[key] for key in fields} for table in extraction["subtables"]]
+    return [{key: table[key] for key in fields if key in table} for table in extraction["subtables"]]
 
 
 def resolve_answer(solver, session, extraction):

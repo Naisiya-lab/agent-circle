@@ -17,7 +17,8 @@ BASE = transport.BASE
 DEFAULT_SOURCE = BASE / "prepared/mmtab_eval.json"
 DEFAULT_RUN = "circle_mmtab_eval"
 PROMPT_NAMES = {"understand": "01_understand.txt", "select": "02_select.txt",
-                "solve": "04_solve.txt", "check": "05_check.txt"}
+                "solve": "04_solve.txt", "check": "05_check.txt",
+                "select_direct": "02_select_direct.txt", "solve_direct": "04_solve_direct.txt"}
 
 
 def prompt_map(cfg=None):
@@ -84,7 +85,7 @@ def prepare(cfg, name=DEFAULT_RUN, source=DEFAULT_SOURCE, limit=18):
                     "implementation_sha256": {str(p.relative_to(BASE)): transport.digest(p.read_bytes()) for p in code_files()},
                     "note": ("Direct M(image, original question); no agent-role JSON constraint. No automatic scoring." if direct else
                              "Tool-backed U -> region request -> version-bound extraction -> text solver -> coordinate resolution -> visual check. "
-                             "One checker content rework; unbounded tool queries and image access; independent format/tool retries. No automatic scoring.")}
+                             "One checker content rework; per-role tool/image budgets with direct-model fallback. No automatic scoring.")}
         if (root/"config.json").exists():
             transport.require(transport.read_json(root/"config.json") == snapshot,
                               "Frozen code, prompts, config or source changed; use a new --run name")
@@ -227,7 +228,7 @@ def run(cfg, name=DEFAULT_RUN, source=DEFAULT_SOURCE, limit=18, max_samples=0, r
         live_cfg = dict(cfg, _retry_protocol_errors=True)
         print("Understand -> Registered table tools -> Select -> Extract -> Solve -> Resolve coordinates -> Check | workers: 1")
         print("API proxy mode: " + transport.proxy_mode(cfg) + " (client policy; does not override TUN or system routes).")
-        print("At most ONE checker content rework; tool queries/images are unbounded. Format/tool retries are independent and recorded.")
+        print("At most ONE checker content rework; per-role tool/image limits: " + str(cfg.get("agent_limits", {"tool_calls": 5, "image_requests": 5})))
         saved_ids = {row["id"] for row in rows if (root/"samples"/row["id"]/"result.json").exists()}
         for row in pending:
             folder = root/"samples"/row["id"]

@@ -1,14 +1,12 @@
 {
-  "date": "2026-11-03",
+  "date": "2026-11-05",
   "tests": {
-    "command": "python -X utf8 -m unittest discover -s tests -q",
-    "count": 129,
+    "command": "python -X utf8 -m unittest discover -s tests",
+    "count": 146,
     "failures": 0,
     "errors": 0,
-    "elapsed_seconds": 73.862,
-    "latest_log": "validation_final_retry.log (local staging evidence, not deployed)",
-    "previous_attempt": "A prior 129-test pass encountered one Windows PermissionError replacing a temporary attempt file. An unchanged-source full rerun passed all 129 tests; no generic production retry was added for this local event.",
-    "network": "One test uses a fake HTTP service at 127.0.0.1; no external model/API calls. Ran with approved local execution because the Windows sandbox blocks localhost sockets."
+    "execution_note": "Full 143-case suite: 138 passed in sandbox; 4 diagnostic tests rerun passed with workspace TEMP and 1 localhost HTTP test passed with approved local socket access. Added 3 budget edge cases; all 13 budget tests passed subsequently.",
+    "network": "Only a fake HTTP service on 127.0.0.1. No real model/API or remote GPU calls."
   },
   "static_checks": {
     "python_compile": true,
@@ -77,5 +75,21 @@
     },
     "unchanged": "All model profile files and provider generation settings; same-model binding; no new image tool or image resizing.",
     "remote_validation": "No SSH or remote GPU inference performed. A new run name is required."
+  },
+  "agent_limits_and_fallback": {
+    "date": "2026-11-05",
+    "tool_calls_per_sample_per_role": 5,
+    "requested_images_per_sample_per_role": 5,
+    "checker_reworks": 1,
+    "verified": [
+      "Separate role and resource budgets; failed executions and transient tool retries counted",
+      "Budget and tool receipt persistence through interruption and checker rework",
+      "Four invalid-grid patterns from stall diagnostics bypass repeated inspect calls",
+      "Model extraction HTML/source maps passed without program provenance or semantic validation",
+      "Coordinate conversion failures switch to direct solver output before checking",
+      "Finite terminal handoff, including empty inspect requests and unavailable image input",
+      "Original task, model profiles and same-model baseline unchanged"
+    ],
+    "limitation": "Fallback model accuracy and actual A800 throughput have not been measured. Frozen older runs require an explicit new-version experiment rather than in-place mixed-version resume."
   }
 }

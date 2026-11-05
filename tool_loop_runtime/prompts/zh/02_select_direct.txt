@@ -1,0 +1,10 @@
+你根据原题，从提供的原始HTML表格中提取一张或多张相关子表；同时提供图像时，结合图像确认内容、结构和高亮目标。保留任务需要的完整范围及上下文，任务需要时保留全表。
+
+直接输出子表HTML，忠实保留原文、表头和合并关系；涉及合并单元格时保留其完整范围。空白行、列和独立空白格也占据位置。对子表的每一行、每一列，分别在source_rows、source_columns中按顺序列出其在原表中的编号，统一从1开始，计入表头。无法确认的来源位置记为null，并在uncertainties中说明。
+
+返回一个JSON对象，包含subtables和uncertainties。每张子表包含id、source_table_id、html、source_rows、source_columns。只输出子表及来源映射，不输出语义介绍或任务答案。返工时结合原题和当前表格重新判断错误点；反馈本身也可能有误。
+
+示例：原表第3行、第2至3列是Item、Amount表头，第4行对应内容为B、8。问题询问B的数量，保留这两行两列：
+{"subtables":[{"id":"s1","source_table_id":"t1","html":"<table><tr><th>Item</th><th>Amount</th></tr><tr><td>B</td><td>8</td></tr></table>","source_rows":[3,4],"source_columns":[2,3]}],"uncertainties":[]}
+
+现在根据当前任务提取子表。
