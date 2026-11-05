@@ -1,5 +1,5 @@
 {
-  "date": "2026-11-03",
+  "date": "2026-11-05",
   "files": [
     {
       "path": ".gitattributes",
@@ -107,6 +107,11 @@
       "sha256": "e09d270249d33645549d5501cc9dd93e8c18c93ae55b40e1f6b70e8301a67340"
     },
     {
+      "path": "docs/STALL_DIAGNOSTICS.md",
+      "bytes": 2109,
+      "sha256": "f8b14edb3aa17f815964d739e962e3a152cbd4c44737272c27040e6e4181cc4b"
+    },
+    {
       "path": "evaluation/README.md",
       "bytes": 1613,
       "sha256": "577e783b115e642d93fc7bff52c512f61a442581d56d0c1cce35b0975303ff4c"
@@ -170,6 +175,11 @@
       "path": "scripts/check_offline.sh",
       "bytes": 120,
       "sha256": "35b8c849b03c1f1d16ed361dfc7fc3032914cecb3b8bfbe2e618cda6efeb10a5"
+    },
+    {
+      "path": "scripts/collect_stall_diagnostics.py",
+      "bytes": 14056,
+      "sha256": "d39e4f49dfa9474138d1aa65b04973640026dac54e48ba6a6efc68d04e3d18ed"
     },
     {
       "path": "scripts/common.sh",
@@ -330,6 +340,11 @@
       "path": "tests/test_recovery.py",
       "bytes": 23493,
       "sha256": "b6c4792f41529c75a354e99a189dedfc78fceb5f9c2c035ed6a320ea07cb9c82"
+    },
+    {
+      "path": "tests/test_stall_diagnostics.py",
+      "bytes": 5865,
+      "sha256": "faa3aff53c52e058678bb0e8bdf6ba2c1931f1fa7374d51956179509e19be505"
     },
     {
       "path": "tests/test_table_tools.py",
